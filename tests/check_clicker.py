@@ -14,7 +14,7 @@ does not need thousands of real smacks; steps 1-3 use only real input.
 Usage (serve the repo first, e.g. `python -m http.server 8321`):
     .venv\\Scripts\\python.exe tests\\check_clicker.py [base_url]
 """
-import json, time, base64, urllib.request, subprocess, os, sys
+import json, time, base64, urllib.request, subprocess, os, sys, tempfile, shutil
 import websocket
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8321/"
@@ -23,6 +23,7 @@ CHROME = next(p for p in [
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
 ] if os.path.exists(p))
 PORT = 9353
+PROFILE_DIR = tempfile.mkdtemp(prefix="musey-clicker-profile-")
 FAILURES = []
 
 def check(name, cond, extra=""):
@@ -34,7 +35,7 @@ proc = subprocess.Popen([
     CHROME, "--headless=new", f"--remote-debugging-port={PORT}", "--remote-allow-origins=*",
     "--window-size=1400,1000", "--hide-scrollbars",
     "--autoplay-policy=no-user-gesture-required",
-    "--user-data-dir=" + os.path.join(os.environ["TEMP"], "musey-clicker-profile"),
+    "--user-data-dir=" + PROFILE_DIR,
     "about:blank",
 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -83,7 +84,7 @@ try:
     check("shop renders 17 upgrades", evl("document.querySelectorAll('.upgrade').length") == 17)
     check("balance starts at 0", evl("game.balance") == 0)
     values = evl("Object.fromEntries(UPGRADES.map(u => [u.id, purchaseValue(u, planPurchase(u))]))")
-    check("every upgrade shows a value estimate", evl("[...document.querySelectorAll('.up-value')].filter(e => e.textContent.includes('pays back')).length") == 17)
+    check("every upgrade shows a value estimate", evl("[...document.querySelectorAll('.up-value')].filter(e => e.textContent.includes('/s • back ~')).length") == 17)
     check("opening click vs auto EV within 8x", values["windup-hand"]["payback"] / values["padded-palm"]["payback"] < 8,
           f"(padded {values['padded-palm']['payback']:.1f}s, windup {values['windup-hand']['payback']:.1f}s)")
     check("all opening value estimates finite/positive", all(v["delta"] > 0 and v["payback"] > 0 for v in values.values()))
@@ -110,10 +111,10 @@ try:
     check("exactly one affordable Best value badge", evl("document.querySelectorAll('.upgrade.best-value').length") == 1)
 
     # 2. buy Padded Palm through the real shop button
-    evl("document.querySelector('[data-upgrade=padded-palm]').click()")
+    evl("updateShop(); document.querySelector('[data-upgrade=padded-palm]').click()")
     time.sleep(0.3)
     check("padded palm owned", evl("game.owned['padded-palm'] || 0") == 1)
-    check("manual hand uses Padded Palm art", "padded-palm.webp" in evl("document.querySelector('#hand img').getAttribute('src')"))
+    check("manual hand keeps the original white glove", "assets/hand.png" in evl("document.querySelector('#hand img').getAttribute('src')"))
     time.sleep(1.2)  # let combo expire so deltas compare cleanly
     second_delta = evl("""(() => {
       const st = document.getElementById('stage'); st.focus();
@@ -133,10 +134,10 @@ try:
       }
       return game.balance;
     })()""")
-    evl("document.querySelector('[data-upgrade=windup-hand]').click()")
+    evl("updateShop(); document.querySelector('[data-upgrade=windup-hand]').click()")
     time.sleep(0.3)
     check("wind-up hand owned", evl("game.owned['windup-hand'] || 0") == 1)
-    check("wind-up hand rendered in stage army", evl("!!document.querySelector('.army-unit[data-upgrade=windup-hand]')") is True)
+    check("buying auto adds no persistent stage actors", evl("document.querySelectorAll('.army-unit, .special-charm').length") == 0)
     check("rates line shows auto income", "auto" in evl("document.getElementById('rates').textContent"),
           evl("document.getElementById('rates').textContent"))
     b_idle0 = evl("game.balance")
@@ -164,8 +165,8 @@ try:
     check("star banked", evl("game.stars") >= 1)
     check("balance reset by prestige", evl("game.balance") < 5, f"({evl('game.balance'):.1f})")
     check("upgrades reset by prestige", evl("Object.keys(game.owned).length") == 0)
-    check("stage army cleared by prestige", evl("document.querySelectorAll('.army-unit').length") == 0)
-    check("hand skin reset by prestige", "assets/hand.png" in evl("document.querySelector('#hand img').getAttribute('src')"))
+    check("scene still has no persistent actors after prestige", evl("document.querySelectorAll('.army-unit, .special-charm').length") == 0)
+    check("hand remains the original white glove after prestige", "assets/hand.png" in evl("document.querySelector('#hand img').getAttribute('src')"))
 
     # 6. offline earnings: own an auto-hand again, jump lastSeen back an hour, reload
     evl("addPoints(100); updateShop(); document.querySelector('[data-upgrade=windup-hand]').click(); saveGame();")
@@ -189,6 +190,11 @@ try:
     ws.close()
 finally:
     proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    shutil.rmtree(PROFILE_DIR, ignore_errors=True)
 
 print("\nRESULT:", "ALL PASS" if not FAILURES else f"{len(FAILURES)} FAILING: {FAILURES}")
 sys.exit(1 if FAILURES else 0)

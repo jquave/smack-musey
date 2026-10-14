@@ -195,20 +195,23 @@ try:
     check("auto-smack quieter than manual", auto_max_gain is not None and manual_gain is not None and auto_max_gain < manual_gain * 0.6,
           f"(manual {manual_gain}, auto max {auto_max_gain})")
 
-    # a late-game auto army: all tiers represented on stage, volleys use
-    # several hands at once and animate faster than the first Wind-Up Hand.
+    # a late-game auto rate: the scene stays clear of persistent actors,
+    # while transient volleys use several white gloves at once and animate
+    # faster than the first Wind-Up Hand.
     evl("""(() => {
       game.owned = {...game.owned, 'windup-hand': 10, 'autohand': 10,
         'smack-drone': 5, 'butler-bot': 2, 'orbital-cannon': 1,
-        'golden-glove': 1, 'orbital-cannon': 1};
+        'golden-glove': 1};
       updateShop();
       return autoRate();
     })()""")
     time.sleep(0.3)
-    check("all five auto tiers rendered in stage army",
-          evl("document.querySelectorAll('.army-unit').length") == 5)
-    check("owned special rendered as stage charm",
-          evl("!!document.querySelector('.special-charm[data-upgrade=golden-glove]')") is True)
+    check("no persistent auto or special graphics float in the scene",
+          evl("document.querySelectorAll('.army-unit, .special-charm, #upgrade-army, #special-charms').length") == 0)
+    check("manual and auto strikes keep the original white glove",
+          evl("document.querySelector('#hand img').getAttribute('src') === 'assets/hand.png' && "
+              "document.querySelectorAll('.auto-striker img').length > 0 && "
+              "[...document.querySelectorAll('.auto-striker img')].every(img => img.getAttribute('src') === 'assets/hand.png')") is True)
     profiles = evl("({low: autoVisualProfile(0.5), high: autoVisualProfile(475)})")
     check("high-rate volley uses multiple hands", profiles["high"]["hands"] >= 4, f"({profiles})")
     check("high-rate strikes animate faster", profiles["high"]["duration"] < profiles["low"]["duration"],

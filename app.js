@@ -805,7 +805,6 @@ function updateShop() {
     prestigeInfoEl.innerHTML = info;
   }
   prestigeBtn.disabled = pending <= 0;
-  renderUpgradeVisuals();
 }
 
 for (const [id, mode] of [["buy-1", 1], ["buy-10", 10], ["buy-max", "max"]]) {
@@ -845,88 +844,8 @@ prestigeBtn.addEventListener("click", () => {
   saveGame();
 });
 
-/* Owned upgrades rendered in the scene with their generated art. */
-const armyEl = $("upgrade-army");
-const charmsEl = $("special-charms");
+/* Auto-strikes always use the original white plush glove. */
 const autoLayerEl = $("auto-layer");
-const ARMY_SLOTS = {
-  "windup-hand": { left: "11%", top: "77%", size: "20%" },
-  "autohand": { left: "8%", top: "48%", size: "21%" },
-  "smack-drone": { left: "84%", top: "17%", size: "23%" },
-  "butler-bot": { left: "89%", top: "72%", size: "24%" },
-  "orbital-cannon": { left: "15%", top: "13%", size: "25%" },
-};
-let armySignature = "";
-let charmsSignature = "";
-let handSkinSrc = "";
-
-function currentGloveSrc() {
-  for (const id of ["platinum-palm", "golden-glove", "diamond-slapper", "titanium-palm", "firm-grip", "padded-palm"]) {
-    if (has(id)) return `assets/icons/${id}.webp`;
-  }
-  return "assets/hand.png";
-}
-
-function renderUpgradeVisuals() {
-  if (!armyEl || !charmsEl) return;
-  const autoOwned = UPGRADES.filter((u) => u.kind === "auto" && owned(u.id) > 0);
-  const sig = autoOwned.map((u) => `${u.id}:${owned(u.id)}`).join("|");
-  if (sig !== armySignature) {
-    armySignature = sig;
-    armyEl.innerHTML = "";
-    for (const u of autoOwned) {
-      const count = owned(u.id);
-      const slot = ARMY_SLOTS[u.id] || { left: "50%", top: "50%", size: "20%" };
-      const unit = document.createElement("div");
-      unit.className = "army-unit";
-      unit.dataset.upgrade = u.id;
-      unit.title = `${u.name} x${count}`;
-      unit.style.left = slot.left;
-      unit.style.top = slot.top;
-      unit.style.width = slot.size;
-      const period = clamp(2.6 / Math.sqrt(Math.max(u.per * count, 0.1)), 0.45, 2.6);
-      unit.style.setProperty("--period", period.toFixed(2) + "s");
-      unit.innerHTML = `<img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false">` +
-        `<span class="army-count">x${count}</span>`;
-      armyEl.appendChild(unit);
-    }
-  }
-
-  const specials = UPGRADES.filter((u) => u.kind === "special" && owned(u.id) > 0);
-  const csig = specials.map((u) => u.id).join("|");
-  if (csig !== charmsSignature) {
-    charmsSignature = csig;
-    charmsEl.innerHTML = "";
-    for (const u of specials) {
-      const charm = document.createElement("span");
-      charm.className = "special-charm";
-      charm.dataset.upgrade = u.id;
-      charm.title = u.name;
-      charm.innerHTML = `<img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false">`;
-      charmsEl.appendChild(charm);
-    }
-    charmsEl.style.display = specials.length ? "" : "none";
-  }
-
-  const skin = currentGloveSrc();
-  if (skin !== handSkinSrc) {
-    handSkinSrc = skin;
-    for (const img of document.querySelectorAll("#hand img, .hand-ghost img, .auto-striker img")) {
-      img.src = skin;
-    }
-    handSize = null;
-  }
-}
-
-function pulseArmyUnit(id) {
-  const unit = armyEl ? armyEl.querySelector(`[data-upgrade="${id}"]`) : null;
-  if (!unit || reducedMotion) return;
-  unit.animate([
-    { transform: "translate(-50%,-50%) scale(1) rotate(0deg)" },
-    { transform: "translate(-50%,-50%) scale(1.16) rotate(-4deg)" },
-    { transform: "translate(-50%,-50%) scale(1) rotate(0deg)" },
-  ], { duration: 220, easing: "ease-out" });
-}
 
 /* Auto-smack choreography: individual strikes at low rates, faster repeated
    strikes mid-game, then staggered multi-direction comic volleys. Income is
@@ -940,24 +859,11 @@ function buildAutoStrikers() {
   for (let i = 0; i < 8; i++) {
     const el = document.createElement("div");
     el.className = "auto-striker";
-    el.innerHTML = `<img src="${handSkinSrc || "assets/hand.png"}" alt="" draggable="false">`;
+    el.innerHTML = `<img src="assets/hand.png" alt="" draggable="false">`;
     el.dataset.busyUntil = "0";
     autoLayerEl.appendChild(el);
     autoStrikers.push(el);
   }
-}
-
-function pickAutoTier() {
-  const tiers = UPGRADES.filter((u) => u.kind === "auto" && owned(u.id) > 0)
-    .map((u) => ({ u, weight: u.per * owned(u.id) }));
-  const total = tiers.reduce((a, t) => a + t.weight, 0);
-  if (!total) return null;
-  let roll = Math.random() * total;
-  for (const t of tiers) {
-    roll -= t.weight;
-    if (roll <= 0) return t.u;
-  }
-  return tiers[tiers.length - 1].u;
 }
 
 function autoVisualProfile(rate) {
@@ -977,7 +883,7 @@ function getAutoStriker() {
     autoStrikers[autoStrikeSeq++ % Math.max(autoStrikers.length, 1)];
 }
 
-function launchAutoStrike({ tier, angleDeg, duration, strength, soundVol, word, batch }) {
+function launchAutoStrike({ angleDeg, duration, strength, soundVol, word, batch }) {
   const cheek = angleDeg < -35 ? cheekL : angleDeg > 35 ? cheekR : (Math.random() < 0.5 ? cheekL : cheekR);
   const c = cheek === cheekL ? CHEEK_L : CHEEK_R;
   const fx = clamp(c.x + rand(-0.035, 0.035), 0.06, 0.94);
@@ -987,7 +893,6 @@ function launchAutoStrike({ tier, angleDeg, duration, strength, soundVol, word, 
     cheekImpulse(cheek, strength, dirX);
     body1.vs += 1.05 * strength;
     if (soundVol > 0) playSmack(strength * 0.9, 1, soundVol);
-    if (tier) pulseArmyUnit(tier.id);
     if (!reducedMotion) {
       spawnFX(fx, fy, strength * 0.75, dirX, false);
       if (word) spawnPop(fx, fy - 0.05, 1.05, batch >= 12, word);
@@ -1012,8 +917,6 @@ function launchAutoStrike({ tier, angleDeg, duration, strength, soundVol, word, 
   el.style.left = fx * 100 + "%";
   el.style.top = fy * 100 + "%";
   el.style.width = 20 + strength * 13 + "%";
-  const img = el.querySelector("img");
-  if (img && handSkinSrc && img.getAttribute("src") !== handSkinSrc) img.src = handSkinSrc;
   for (const a of el.getAnimations()) a.cancel();
   el.animate([
     { transform: `translate(calc(-50% + ${dx}px), calc(-52% + ${dy}px)) rotate(${startRot}deg) scale(1.08)`, opacity: 0 },
@@ -1032,7 +935,6 @@ function launchAutoVolley(rate) {
   const strength = clamp((0.24 + Math.sqrt(rate) * 0.055) / Math.sqrt(profile.hands), 0.18, 0.68);
   angles.forEach((angle, i) => {
     const fire = () => launchAutoStrike({
-      tier: pickAutoTier(),
       angleDeg: angle + rand(-9, 9),
       duration: profile.duration,
       strength,

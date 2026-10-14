@@ -412,7 +412,6 @@ html.frenzy #combo-fill { background: #c22544; }
 
 @media (prefers-reduced-motion: reduce) {
   html.frenzy .top h1 { animation: none; }
-  .army-unit img { animation: none; }
 }
 
 /* ---------- small + short screens: Musey must fit without scrolling ---------- */
@@ -432,8 +431,6 @@ html.frenzy #combo-fill { background: #c22544; }
   .up-icon img { width: 43px; height: 43px; }
   .up-side, .up-cost { width: 88px; }
   .up-owned { width: 46px; }
-  .special-charm { width: 29px; height: 29px; flex-basis: 29px; }
-  .special-charm img { width: 24px; height: 24px; }
 }
 
 @media (max-height: 760px) {
@@ -807,83 +804,12 @@ main > .layout {
   cursor: pointer;
 }
 
-#upgrade-army,
 #auto-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 6;
 }
-
-#upgrade-army { z-index: 3; }
-#auto-layer { z-index: 6; }
-
-.army-unit {
-  position: absolute;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 7px 9px rgba(120, 50, 60, 0.28));
-}
-
-.army-unit img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  animation: army-bob var(--period, 1.6s) ease-in-out infinite;
-}
-
-@keyframes army-bob {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-4%) rotate(2deg); }
-}
-
-.army-count {
-  position: absolute;
-  right: -3px;
-  bottom: 2px;
-  min-width: 34px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  border: 2px solid var(--ink);
-  border-radius: 99px;
-  background: #fff6f2;
-  color: var(--accent-deep);
-  font-size: 0.7rem;
-  font-weight: 900;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-#special-charms {
-  position: absolute;
-  top: 1.5%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  display: flex;
-  gap: 4px;
-  width: max-content;
-  max-width: 96%;
-  pointer-events: none;
-}
-
-.special-charm {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 50%;
-  border: 2px solid #d98a92;
-  background: radial-gradient(circle at 50% 38%, #ffe9e2 0%, #f6c6bd 74%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 3px 4px rgba(120, 50, 60, 0.22));
-}
-
-.special-charm img { width: 28px; height: 28px; object-fit: contain; display: block; }
 
 .auto-striker {
   position: absolute;
