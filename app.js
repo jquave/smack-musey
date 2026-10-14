@@ -124,32 +124,23 @@ function pendingStars() {
 }
 
 /* ================= audio ================= */
-let audioCtx = null, smackBuffer = null, audioTried = false;
-let prefetched = null; // raw bytes fetched at load so the first smack is never silent
+let audioCtx = null, smackBuffer = null, decodeStarted = false;
+let pendingPlay = null; // a smack that landed while the sample was still decoding
 
-(async () => {
-  for (const url of ["assets/smack.ogg", "assets/smack.wav"]) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) { prefetched = { url, bytes: await res.arrayBuffer() }; return; }
-    } catch (e) { /* offline; will retry on first gesture */ }
-  }
-})();
+function createCtx() {
+  if (audioCtx) return true;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  audioCtx = new AC({ latencyHint: "interactive" });
+  return true;
+}
 
-async function ensureAudio() {
-  if (!audioCtx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    audioCtx = new AC({ latencyHint: "interactive" });
-  }
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  if (smackBuffer || audioTried) return;
-  audioTried = true;
-  const candidates = [];
-  if (prefetched) candidates.push(prefetched.bytes.slice(0));
-  for (const bytes of candidates) {
-    try { smackBuffer = await audioCtx.decodeAudioData(bytes); return; } catch (e) { /* fall through */ }
-  }
+// Fetch + decode immediately at page load. Decoding works while the context
+// is still suspended (browsers only gate *playback* on a user gesture), so
+// the sample is ready long before the first smack instead of after it.
+async function decodeSmack() {
+  if (decodeStarted || smackBuffer || !createCtx()) return;
+  decodeStarted = true;
   for (const url of ["assets/smack.ogg", "assets/smack.wav"]) {
     try {
       const res = await fetch(url);
@@ -158,21 +149,42 @@ async function ensureAudio() {
       break;
     } catch (e) { /* try next format */ }
   }
+  if (smackBuffer && pendingPlay && performance.now() - pendingPlay.at < 600) {
+    playSmackNow(pendingPlay.strength, pendingPlay.comboNow, pendingPlay.vol);
+  }
+  pendingPlay = null;
+}
+decodeSmack();
+
+async function ensureAudio() {
+  if (!createCtx()) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  decodeSmack();
 }
 window.addEventListener("pointerdown", () => ensureAudio(), { passive: true });
 
-function playSmack(strength, comboNow) {
+function playSmack(strength, comboNow, vol = 1) {
+  if (muted || !createCtx()) return;
+  if (!smackBuffer) { // still decoding: remember this smack and play it the moment we can
+    pendingPlay = { strength, comboNow, vol, at: performance.now() };
+    decodeSmack();
+    return;
+  }
+  playSmackNow(strength, comboNow, vol);
+}
+
+function playSmackNow(strength, comboNow, vol = 1) {
   if (muted || !audioCtx || !smackBuffer) return;
   const src = audioCtx.createBufferSource();
   src.buffer = smackBuffer;
   // pitch ladder: combos climb
   src.playbackRate.value = 0.9 + 0.28 * strength + Math.min(comboNow || 1, 20) * 0.012 + Math.random() * 0.08;
   const gain = audioCtx.createGain();
-  gain.gain.value = clamp(0.45 + 0.55 * strength, 0, 1);
+  gain.gain.value = clamp(0.45 + 0.55 * strength, 0, 1) * vol;
   src.connect(gain).connect(audioCtx.destination);
   src.start();
-  // subtle low thump under only the hardest hits
-  if (strength > 1.05) {
+  // subtle low thump under only the hardest manual hits
+  if (strength > 1.05 && vol > 0.5) {
     const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const og = audioCtx.createGain();
@@ -721,6 +733,40 @@ prestigeBtn.addEventListener("click", () => {
   saveGame();
 });
 
+/* An auto-smacker hand swoops in, strikes (jiggle + quieter smack), and leaves. */
+const autoHandEl = $("auto-hand");
+function showAutoSmack(strength) {
+  const cheek = Math.random() < 0.5 ? cheekL : cheekR;
+  const c = cheek === cheekL ? CHEEK_L : CHEEK_R;
+  const fx = c.x + rand(-0.03, 0.03), fy = c.y + rand(-0.02, 0.02);
+  const dirX = rand(-0.8, 0.8);
+  const impact = () => {
+    cheekImpulse(cheek, strength, dirX);
+    body1.vs += 1.1 * strength;
+    playSmack(strength * 0.85, 1, 0.22); // noticeably quieter than your own hand
+    if (!reducedMotion) {
+      spawnFX(fx, fy, strength * 0.7, dirX, false);
+      if (strength > 0.35 && Math.random() < 0.3) spawnHandprint(fx, fy, strength * 0.8, rand(-25, 25));
+    }
+  };
+  if (reducedMotion || !autoHandEl) { impact(); return; }
+  const r = stageRectCache || refreshStageRect();
+  const dx = (dirX >= 0 ? -1 : 1) * rand(0.14, 0.24) * r.width;
+  const dy = rand(0.2, 0.3) * r.height;
+  autoHandEl.style.left = fx * 100 + "%";
+  autoHandEl.style.top = fy * 100 + "%";
+  autoHandEl.style.width = 21 + strength * 11 + "%";
+  for (const a of autoHandEl.getAnimations()) a.cancel();
+  autoHandEl.animate([
+    { transform: `translate(calc(-50% + ${dx}px), calc(-52% - ${dy}px)) rotate(-26deg) scale(1.07)`, opacity: 0 },
+    { opacity: 1, offset: 0.18 },
+    { transform: "translate(-50%,-52%) rotate(6deg) scale(0.92)", opacity: 1, offset: 0.42 },
+    { transform: "translate(-50%,-55%) rotate(0deg) scale(1)", opacity: 1, offset: 0.62 },
+    { transform: `translate(calc(-50% + ${dx * 0.85}px), calc(-52% - ${dy}px)) rotate(-20deg) scale(1.04)`, opacity: 0 },
+  ], { duration: 430, easing: "ease-in-out" });
+  setTimeout(impact, 175);
+}
+
 function applyOffline() {
   if (!game.lastSeen || autoRate() <= 0) return;
   const elapsed = (Date.now() - game.lastSeen) / 1000;
@@ -884,10 +930,8 @@ function frame(now) {
     }
     autoJiggleT -= dt;
     if (autoJiggleT <= 0) {
-      autoJiggleT = clamp(2.4 / aRate, 0.45, 2.6);
-      cheekImpulse(Math.random() < 0.5 ? cheekL : cheekR,
-        clamp(0.15 + Math.sqrt(aRate) * 0.045, 0.15, 0.5), rand(-0.7, 0.7));
-      body1.vs += 0.5;
+      autoJiggleT = clamp(1 / aRate, 0.55, 4);
+      showAutoSmack(clamp(0.22 + Math.sqrt(aRate) * 0.06, 0.22, 0.65));
     }
   }
   shopTickT -= dt;
