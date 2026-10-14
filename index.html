@@ -23,6 +23,8 @@
 </header>
 
 <main>
+  <div class="layout">
+  <section class="play-col">
   <div id="stage" role="button" tabindex="0" aria-label="Musey. Press Space or click his butt to smack it.">
     <div id="musey-wrap">
       <picture>
@@ -51,6 +53,10 @@
   </div>
 
   <div class="hud">
+    <div class="stat sp-stat">
+      <span class="stat-num" id="balance">0</span>
+      <span class="stat-label">smack points</span>
+    </div>
     <div class="stat">
       <span class="stat-num" id="count">0</span>
       <span class="stat-label">smacks delivered</span>
@@ -72,7 +78,24 @@
   </div>
 
   <p id="milestone" role="status" aria-live="polite"></p>
-  <p class="how">Click, tap, or swing your hand through his butt. Faster swing = harder smack.</p>
+  <p class="how">Click, tap, or swing your hand through his butt. Faster swing = harder smack = more points.</p>
+  </section>
+
+  <aside id="shop" aria-label="Upgrades shop">
+    <div class="shop-head">
+      <h2>Upgrades</h2>
+      <div class="buy-toggle" role="group" aria-label="Buy amount">
+        <button id="buy-1" type="button" class="on">x1</button><button id="buy-10" type="button">x10</button><button id="buy-max" type="button">Max</button>
+      </div>
+    </div>
+    <p id="rates" class="rates">&nbsp;</p>
+    <div id="shop-list"></div>
+    <div class="prestige-box">
+      <p id="prestige-info"></p>
+      <button id="prestige-btn" type="button">Prestige</button>
+    </div>
+  </aside>
+  </div>
 </main>
 
 <footer>

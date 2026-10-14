@@ -4,13 +4,17 @@ The Meta Muse mascot has a very smackable butt. You have a plush hand. You know 
 
 **[▶ Play it live](https://jquave.github.io/smack-musey/)**
 
+![UI concept art generated for the clicker update](assets/gen/ui-concept.jpg)
+
 ## How to play
 
 - **Click / tap** Musey's butt to smack it.
 - **Swing** your hand through his butt really fast — a fast swing lands a smack without clicking, and the faster you swing, the harder it smacks (louder, higher-pitched, jiggler).
 - Chain smacks quickly to build a **combo**. Milestones at 1, 10, 25, 50, 100, 250, 500 and 1,000 smacks.
+- Every smack earns **Smack Points**. Spend them in the **Upgrades shop**: stronger palms, auto-smackers that work while you watch (and at half rate while you're gone for up to 8 hours), crits, echoes, multipliers — 17 upgrades, buyable x1/x10/Max.
+- Rich? **Prestige**: reset points and upgrades for permanent Butt Stars worth +15% points each, forever.
 - Keyboard: focus Musey and press **Space**. The hand does the rest.
-- Your lifetime smack count is saved in your browser.
+- Your smack count, points, upgrades and stars are saved in your browser.
 
 ## Features
 
@@ -56,6 +60,11 @@ Then open `http://127.0.0.1:8321/` in a browser.
 | `assets/hand.png`, `assets/hand-cursor.png` | The plush hand (edges cleaned, scaled down) + tiny native-cursor fallback. |
 | `assets/smack.ogg` / `.wav` | The isolated smack (see below). WAV is the Safari fallback. |
 | `assets/musey.jpg` | Social-preview image. |
+| `assets/icons/*.webp` | The 17 upgrade icons + points coin, sliced from the sheet below. |
+| `assets/gen/upgrade-icons-sheet.png` | Codex imagegen sprite sheet the icons were sliced from (green-screen source). |
+| `assets/gen/ui-concept.png` / `.jpg` | Codex imagegen UI concept the shop design follows. |
+| `assets/gen/tex-fur-pink.*`, `tex-cream-dots.*` | Codex imagegen seamless plush textures used by the shop and cards (`.webp` served, `.png` master). |
+| `tests/check_responsiveness.py`, `tests/check_clicker.py` | Headless-Chrome checks for input lag/layout and the clicker economy. |
 
 The three original files in the repo root (`musey.jpg`, `Ivory plush hand cursor.png`, the original `.ogg`) are the unprocessed sources. The site doesn't need them — keep them for safekeeping or delete them before pushing.
 
