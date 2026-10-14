@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Smack Musey!</title>
+<meta name="description" content="The Meta Muse mascot has a very smackable butt. You have a plush hand. You know what to do.">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<meta property="og:title" content="Smack Musey!">
+<meta property="og:description" content="The Meta Muse mascot has a very smackable butt. You have a plush hand. You know what to do.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/musey.jpg">
+<link rel="preload" as="image" href="assets/musey-cutout.webp" type="image/webp">
+<link rel="preload" as="image" href="assets/hand.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <h1>Smack Musey!</h1>
+  <p class="tagline">He knows what he did.</p>
+</header>
+
+<main>
+  <div id="stage" role="button" tabindex="0" aria-label="Musey. Press Space or click his butt to smack it.">
+    <div id="musey-wrap">
+      <picture>
+        <source srcset="assets/musey-cutout.webp" type="image/webp">
+        <img id="musey-base" class="layer" src="assets/musey-cutout.png" alt="Musey, the fluffy pink Meta Muse mascot, presenting a very smackable butt" draggable="false">
+      </picture>
+      <picture aria-hidden="true">
+        <source srcset="assets/musey-cutout.webp" type="image/webp">
+        <img id="cheek-l" class="layer cheek" src="assets/musey-cutout.png" alt="" draggable="false">
+      </picture>
+      <picture aria-hidden="true">
+        <source srcset="assets/musey-cutout.webp" type="image/webp">
+        <img id="cheek-r" class="layer cheek" src="assets/musey-cutout.png" alt="" draggable="false">
+      </picture>
+      <picture aria-hidden="true">
+        <source srcset="assets/musey-cutout.webp" type="image/webp">
+        <img id="head-layer" class="layer" src="assets/musey-cutout.png" alt="" draggable="false">
+      </picture>
+      <div id="print-layer" aria-hidden="true"></div>
+      <div id="blush-l" class="blush" aria-hidden="true"></div>
+      <div id="blush-r" class="blush" aria-hidden="true"></div>
+      <div id="hint-ring" aria-hidden="true"><span>smack<br>here!</span></div>
+    </div>
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div id="pop-layer" aria-hidden="true"></div>
+  </div>
+
+  <div class="hud">
+    <div class="stat">
+      <span class="stat-num" id="count">0</span>
+      <span class="stat-label">smacks delivered</span>
+    </div>
+    <div class="stat combo-stat">
+      <span class="stat-num" id="combo">&nbsp;</span>
+      <span class="stat-label">combo</span>
+      <span class="combo-bar"><span id="combo-fill"></span></span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="hardest">&mdash;</span>
+      <span class="stat-label">hardest smack</span>
+    </div>
+    <div class="hud-buttons">
+      <button id="share-btn" type="button">Share score</button>
+      <button id="mute-btn" type="button" aria-pressed="false">Sound: on</button>
+      <button id="reset-btn" type="button">Reset count</button>
+    </div>
+  </div>
+
+  <p id="milestone" role="status" aria-live="polite"></p>
+  <p class="how">Click, tap, or swing your hand through his butt. Faster swing = harder smack.</p>
+</main>
+
+<footer>
+  <p>Musey is the Meta Muse mascot. No Museys were harmed; he is plush and he loves it.</p>
+  <p>Smack sound trimmed from &ldquo;bunny smack bad human&rdquo; by mrgreaper (Freesound #223492).</p>
+</footer>
+
+<div class="hand-ghost" id="ghost-2" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
+<div class="hand-ghost" id="ghost-1" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
+<div id="hand" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
