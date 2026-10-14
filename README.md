@@ -11,7 +11,7 @@ The Meta Muse mascot has a very smackable butt. You have a plush hand. You know 
 - **Click / tap** Musey's butt to smack it.
 - **Swing** your hand through his butt really fast — a fast swing lands a smack without clicking, and the faster you swing, the harder it smacks (louder, higher-pitched, jiggler).
 - Chain smacks quickly to build a **combo**. Milestones at 1, 10, 25, 50, 100, 250, 500 and 1,000 smacks.
-- Every smack earns **Smack Points**. Spend them in the **Upgrades shop**: stronger palms, auto-smackers that work while you watch (and at half rate while you're gone for up to 8 hours), crits, echoes, multipliers — 17 upgrades, buyable x1/x10/Max. Every card shows its estimated `+pts/s` and payback time at your recent pace, with the current best value highlighted. Auto-smackers appear only as brief strikes from the same white plush glove; the glove itself never changes.
+- Every smack earns **Smack Points**. Spend them in the **Upgrades shop**: stronger palms, auto-smackers that work while you watch (and at half rate while you're gone for up to 8 hours), crits, echoes, multipliers — 17 upgrades, buyable x1/x10/Max. Every card shows its estimated `+pts/s` and payback time at your recent pace, with the current best value highlighted. Auto-smackers appear only as brief strikes from the same white plush glove, one at a time; the glove itself never changes.
 - Rich? **Prestige**: reset points and upgrades for permanent Butt Stars worth +15% points each, forever.
 - Keyboard: focus Musey and press **Space**. The hand does the rest.
 - Your smack count, points, upgrades and stars are saved in your browser.
@@ -20,7 +20,7 @@ The Meta Muse mascot has a very smackable butt. You have a plush hand. You know 
 
 - Spring-physics jiggle: each cheek is an independent damped spring with directional squash, skew, sway and rebound; the far cheek ripples 45 ms after the hit one, the whole body recoils, and his head wobbles a beat later.
 - Velocity-sensitive smacks with pitch/volume-matched sound; combos climb the pitch ladder, every individual smack gets small pitch and duration variation, and the hardest hits get a subtle low thump, screen shake and a freeze-frame.
-- Auto-smackers stay out of the scene until they strike: the same white plush glove darts in, lands the hit and leaves. Hits speed up with your auto rate, then graduate to staggered comic-book volleys from several directions with a single quieter impact sound per volley.
+- Auto-smackers stay out of the scene until they strike: one white plush glove darts in, lands a quieter hit and leaves. Even at extreme auto rates, that single strike simply represents a larger batch — there is never more than one auto glove on screen.
 - Lingering pink handprints, impact particles, rings, escalating pop words ("SMACK!", "THWACK!!", "KRAKOOM!"), a cheek that visibly reddens, and confetti bursts at milestones.
 - **SMACK FRENZY** at an x8 combo: the page heats up and the title starts wiggling. There's also a hardest-smack record, a combo timer bar, and a share-score button.
 - He's alive: Musey breathes idly, and if you ignore him for 7 seconds the butt wiggles invitingly. Clicks elsewhere on his body get a soft plush "boop"; missed swings whoosh.

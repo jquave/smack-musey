@@ -847,43 +847,36 @@ prestigeBtn.addEventListener("click", () => {
 /* Auto-strikes always use the original white plush glove. */
 const autoLayerEl = $("auto-layer");
 
-/* Auto-smack choreography: individual strikes at low rates, faster repeated
-   strikes mid-game, then staggered multi-direction comic volleys. Income is
-   always continuous; at extreme rates a volley represents a batch. */
+/* Auto-smack choreography: exactly one white glove is ever on screen.
+   Income is continuous; at high rates that single strike represents a batch. */
 const AUTO_DIRECTIONS = [-155, -115, -70, -25, 25, 70, 115, 160];
-let autoStrikers = [];
-let autoStrikeSeq = 0;
+let autoStrikerEl = null;
 
-function buildAutoStrikers() {
-  if (!autoLayerEl || autoStrikers.length) return;
-  for (let i = 0; i < 8; i++) {
-    const el = document.createElement("div");
-    el.className = "auto-striker";
-    el.innerHTML = `<img src="assets/hand.png" alt="" draggable="false">`;
-    el.dataset.busyUntil = "0";
-    autoLayerEl.appendChild(el);
-    autoStrikers.push(el);
-  }
+function buildAutoStriker() {
+  if (!autoLayerEl || autoStrikerEl) return;
+  autoStrikerEl = document.createElement("div");
+  autoStrikerEl.className = "auto-striker";
+  autoStrikerEl.innerHTML = `<img src="assets/hand.png" alt="" draggable="false">`;
+  autoStrikerEl.dataset.busyUntil = "0";
+  autoLayerEl.appendChild(autoStrikerEl);
 }
 
 function autoVisualProfile(rate) {
   if (rate <= 0) return { interval: 1, hands: 0, duration: 430, batch: 0 };
   if (rate <= 2) return { interval: 1 / rate, hands: 1, duration: 430, batch: 1 };
-  if (rate <= 6) return { interval: clamp(1.8 / rate, 0.32, 0.9), hands: 1, duration: 350, batch: Math.max(1, Math.round(rate * 0.4)) };
-  if (rate <= 15) return { interval: 0.55, hands: 2, duration: 320, batch: Math.max(2, Math.round(rate * 0.55)) };
-  if (rate <= 40) return { interval: 0.65, hands: 3, duration: 295, batch: Math.round(rate * 0.65) };
-  if (rate <= 120) return { interval: 0.7, hands: 4, duration: 275, batch: Math.round(rate * 0.7) };
-  return { interval: 0.75, hands: 6, duration: 255, batch: Math.round(rate * 0.75) };
+  if (rate <= 6) return { interval: clamp(1.8 / rate, 0.43, 0.9), hands: 1, duration: 350, batch: Math.max(1, Math.round(rate * 0.4)) };
+  if (rate <= 15) return { interval: 0.55, hands: 1, duration: 320, batch: Math.max(2, Math.round(rate * 0.55)) };
+  if (rate <= 40) return { interval: 0.65, hands: 1, duration: 295, batch: Math.round(rate * 0.65) };
+  if (rate <= 120) return { interval: 0.7, hands: 1, duration: 275, batch: Math.round(rate * 0.7) };
+  return { interval: 0.75, hands: 1, duration: 255, batch: Math.round(rate * 0.75) };
 }
 
 function getAutoStriker() {
-  buildAutoStrikers();
-  const now = performance.now();
-  return autoStrikers.find((el) => +el.dataset.busyUntil <= now) ||
-    autoStrikers[autoStrikeSeq++ % Math.max(autoStrikers.length, 1)];
+  buildAutoStriker();
+  return autoStrikerEl;
 }
 
-function launchAutoStrike({ angleDeg, duration, strength, soundVol, word, batch }) {
+function launchAutoStrike({ angleDeg, duration, strength, soundVol }) {
   const cheek = angleDeg < -35 ? cheekL : angleDeg > 35 ? cheekR : (Math.random() < 0.5 ? cheekL : cheekR);
   const c = cheek === cheekL ? CHEEK_L : CHEEK_R;
   const fx = clamp(c.x + rand(-0.035, 0.035), 0.06, 0.94);
@@ -895,7 +888,6 @@ function launchAutoStrike({ angleDeg, duration, strength, soundVol, word, batch 
     if (soundVol > 0) playSmack(strength * 0.9, 1, soundVol);
     if (!reducedMotion) {
       spawnFX(fx, fy, strength * 0.75, dirX, false);
-      if (word) spawnPop(fx, fy - 0.05, 1.05, batch >= 12, word);
       if (strength > 0.3 && Math.random() < 0.28) {
         spawnHandprint(fx, fy, strength * 0.85, angleDeg + 90 + rand(-12, 12));
       }
@@ -928,22 +920,15 @@ function launchAutoStrike({ angleDeg, duration, strength, soundVol, word, batch 
   setTimeout(impact, Math.round(duration * 0.42));
 }
 
-function launchAutoVolley(rate) {
+function launchAutoVisual(rate) {
   const profile = autoVisualProfile(rate);
   if (!profile.hands) return profile;
-  const angles = [...AUTO_DIRECTIONS].sort(() => Math.random() - 0.5).slice(0, profile.hands);
-  const strength = clamp((0.24 + Math.sqrt(rate) * 0.055) / Math.sqrt(profile.hands), 0.18, 0.68);
-  angles.forEach((angle, i) => {
-    const fire = () => launchAutoStrike({
-      angleDeg: angle + rand(-9, 9),
-      duration: profile.duration,
-      strength,
-      soundVol: i === 0 ? (profile.hands >= 3 ? 0.3 : 0.22) : 0,
-      word: i === 0 && profile.hands >= 3 ? (Math.random() < 0.5 ? "WHAM!" : "SMACK x" + profile.batch + "!") : null,
-      batch: profile.batch,
-    });
-    if (i === 0) fire();
-    else setTimeout(fire, i * 45);
+  const angle = AUTO_DIRECTIONS[Math.floor(Math.random() * AUTO_DIRECTIONS.length)];
+  launchAutoStrike({
+    angleDeg: angle + rand(-9, 9),
+    duration: profile.duration,
+    strength: clamp(0.24 + Math.sqrt(rate) * 0.055, 0.18, 0.68),
+    soundVol: 0.22,
   });
   return profile;
 }
@@ -1126,7 +1111,7 @@ function paintHand(now) {
 
 /* ================= main loop ================= */
 let lastT = performance.now();
-let autoSmackAcc = 0, autoVolleyT = 0.8, shopTickT = 0;
+let autoSmackAcc = 0, autoVisualT = 0.8, shopTickT = 0;
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -1173,10 +1158,10 @@ function frame(now) {
         if (prevTotal < +k && totalSmacks >= +k) showMilestone(MILESTONES[k]);
       }
     }
-    autoVolleyT -= dt;
-    if (autoVolleyT <= 0) {
-      const profile = launchAutoVolley(aRate);
-      autoVolleyT = profile.interval;
+    autoVisualT -= dt;
+    if (autoVisualT <= 0) {
+      const profile = launchAutoVisual(aRate);
+      autoVisualT = profile.interval;
     }
   }
   shopTickT -= dt;
@@ -1203,7 +1188,7 @@ function frame(now) {
 
 sizeCanvas();
 buildShop();
-buildAutoStrikers();
+buildAutoStriker();
 updateShop();
 applyOffline();
 showSharedScore();

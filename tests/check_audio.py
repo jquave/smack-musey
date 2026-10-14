@@ -196,8 +196,8 @@ try:
           f"(manual {manual_gain}, auto max {auto_max_gain})")
 
     # a late-game auto rate: the scene stays clear of persistent actors,
-    # while transient volleys use several white gloves at once and animate
-    # faster than the first Wind-Up Hand.
+    # and a single transient white glove represents each batch while still
+    # animating faster than the first Wind-Up Hand.
     evl("""(() => {
       game.owned = {...game.owned, 'windup-hand': 10, 'autohand': 10,
         'smack-drone': 5, 'butler-bot': 2, 'orbital-cannon': 1,
@@ -210,10 +210,10 @@ try:
           evl("document.querySelectorAll('.army-unit, .special-charm, #upgrade-army, #special-charms').length") == 0)
     check("manual and auto strikes keep the original white glove",
           evl("document.querySelector('#hand img').getAttribute('src') === 'assets/hand.png' && "
-              "document.querySelectorAll('.auto-striker img').length > 0 && "
-              "[...document.querySelectorAll('.auto-striker img')].every(img => img.getAttribute('src') === 'assets/hand.png')") is True)
+              "document.querySelectorAll('.auto-striker img').length === 1 && "
+              "document.querySelector('.auto-striker img').getAttribute('src') === 'assets/hand.png'") is True)
     profiles = evl("({low: autoVisualProfile(0.5), high: autoVisualProfile(475)})")
-    check("high-rate volley uses multiple hands", profiles["high"]["hands"] >= 4, f"({profiles})")
+    check("high-rate visual still uses only one hand", profiles["high"]["hands"] == 1, f"({profiles})")
     check("high-rate strikes animate faster", profiles["high"]["duration"] < profiles["low"]["duration"],
           f"({profiles['low']['duration']}ms -> {profiles['high']['duration']}ms)")
     concurrent = evl("""(async () => {
@@ -227,7 +227,7 @@ try:
       })());
       return maxVisible;
     })()""")
-    check("multiple auto hands visible simultaneously", concurrent >= 3, f"(max {concurrent})")
+    check("exactly one auto hand visible at a time", concurrent == 1, f"(max {concurrent})")
 
     print("JS errors:", errors if errors else "none")
     if errors:
