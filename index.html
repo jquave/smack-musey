@@ -51,6 +51,8 @@
     <canvas id="fx" aria-hidden="true"></canvas>
     <div id="pop-layer" aria-hidden="true"></div>
     <div id="auto-layer" aria-hidden="true"></div>
+    <div id="cheek-balance" aria-hidden="true"><span>L</span><span class="balance-track"><span id="cheek-balance-fill"></span></span><span>R</span></div>
+    <p id="doom" hidden>Your next smack ends the universe. No pressure.</p>
   </div>
 
   <div class="hud">
@@ -74,23 +76,48 @@
     <div class="hud-buttons">
       <button id="share-btn" type="button">Share score</button>
       <button id="mute-btn" type="button" aria-pressed="false">Sound: on</button>
-      <button id="reset-btn" type="button">Reset count</button>
+      <button id="reset-btn" type="button">Forgive Musey</button>
     </div>
   </div>
 
   <p id="milestone" role="status" aria-live="polite"></p>
-  <p class="how">Click, tap, or swing your hand through his butt. Faster swing = harder smack = more points.</p>
+  <p class="how">Click, tap, or swing your hand through his butt. Faster swing = harder smack = more points. Alternate cheeks to charge Perfect Balance (×5).</p>
   </section>
 
   <aside id="shop" aria-label="Upgrades shop">
-    <div class="shop-head">
-      <h2>Upgrades</h2>
-      <div class="buy-toggle" role="group" aria-label="Buy amount">
-        <button id="buy-1" type="button" class="on">x1</button><button id="buy-10" type="button">x10</button><button id="buy-max" type="button">Max</button>
-      </div>
+    <div class="shop-tabs" role="tablist" aria-label="Shop sections">
+      <button id="tab-upgrades" type="button" role="tab" class="on" aria-selected="true" aria-controls="pane-upgrades">Upgrades</button>
+      <button id="tab-stars" type="button" role="tab" aria-selected="false" aria-controls="pane-stars">★ Star Perks</button>
+      <button id="tab-universe" type="button" role="tab" aria-selected="false" aria-controls="pane-universe">✦ Universe</button>
     </div>
-    <p id="rates" class="rates">&nbsp;</p>
-    <div id="shop-list"></div>
+    <section id="pane-upgrades" class="shop-pane" role="tabpanel" aria-labelledby="tab-upgrades">
+      <div class="shop-head">
+        <h2>Upgrades</h2>
+        <div class="buy-toggle" role="group" aria-label="Buy amount">
+          <button id="buy-1" type="button" class="on">x1</button><button id="buy-10" type="button">x10</button><button id="buy-max" type="button">Max</button>
+        </div>
+      </div>
+      <p id="rates" class="rates">&nbsp;</p>
+      <div id="shop-list"></div>
+    </section>
+    <section id="pane-stars" class="shop-pane" role="tabpanel" aria-labelledby="tab-stars" hidden>
+      <div class="shop-head star-head">
+        <h2>Star Perks</h2>
+        <span class="star-note">Permanent</span>
+      </div>
+      <p id="star-info" class="rates star-info">&nbsp;</p>
+      <label id="board-toggle" class="board-toggle" hidden><input id="board-on" type="checkbox" checked> Board auto-buys best value</label>
+      <div id="star-list"></div>
+    </section>
+    <section id="pane-universe" class="shop-pane" role="tabpanel" aria-labelledby="tab-universe" hidden>
+      <div class="shop-head star-head">
+        <h2>Universe Reload</h2>
+        <span class="star-note">✦ Fluff</span>
+      </div>
+      <p id="fluff-info" class="rates star-info">&nbsp;</p>
+      <div class="universe-spacer" aria-hidden="true"></div>
+      <div id="fluff-list"></div>
+    </section>
     <div class="prestige-box">
       <p id="prestige-info"></p>
       <button id="prestige-btn" type="button">Prestige</button>
@@ -107,6 +134,15 @@
 <div class="hand-ghost" id="ghost-2" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
 <div class="hand-ghost" id="ghost-1" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
 <div id="hand" aria-hidden="true"><img src="assets/hand.png" alt="" draggable="false"></div>
+
+<div id="universe-overlay" hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Universe reloading">
+  <div class="universe-card">
+    <p class="universe-kicker">Universe reloading</p>
+    <h2 id="universe-title">Heat death.</h2>
+    <p id="universe-line">Every star has gone out. One butt remains warm.</p>
+    <p class="universe-skip">Click anywhere to skip</p>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

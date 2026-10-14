@@ -86,7 +86,7 @@ try:
         stats: [...document.querySelectorAll('.hud .stat')].map(rect),
         buttons: [...document.querySelectorAll('.hud-buttons button')].map(rect),
         rates: rect(document.getElementById('rates')),
-        cards: [...document.querySelectorAll('.upgrade')].map(rect),
+        cards: [...document.querySelectorAll('#shop-list .upgrade')].map(rect),
         prestige: rect(document.querySelector('.prestige-box')),
         balance: document.getElementById('balance').textContent,
         count: document.getElementById('count').textContent,

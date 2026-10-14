@@ -15,6 +15,9 @@ const milestoneEl = $("milestone"), hintRing = $("hint-ring"), popLayer = $("pop
 const canvas = $("fx"), ctx2d = canvas.getContext("2d");
 const headEl = $("head-layer"), printLayer = $("print-layer");
 const comboFill = $("combo-fill"), hardestEl = $("hardest");
+const cheekBalanceEl = $("cheek-balance"), cheekBalanceFill = $("cheek-balance-fill");
+const doomEl = $("doom"), taglineEl = document.querySelector(".tagline");
+const universeOverlay = $("universe-overlay"), universeTitle = $("universe-title"), universeLine = $("universe-line");
 const ghost1 = $("ghost-1"), ghost2 = $("ghost-2");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -52,6 +55,9 @@ syncHardest();
 
 /* ================= clicker economy ================= */
 const balanceEl = $("balance"), ratesEl = $("rates"), shopListEl = $("shop-list");
+const starListEl = $("star-list"), starInfoEl = $("star-info");
+const fluffListEl = $("fluff-list"), fluffInfoEl = $("fluff-info");
+const boardToggleEl = $("board-toggle"), boardToggle = $("board-on");
 const prestigeInfoEl = $("prestige-info"), prestigeBtn = $("prestige-btn");
 
 const UPGRADES = [
@@ -72,13 +78,46 @@ const UPGRADES = [
   { id: "diamond-slapper", name: "Diamond Slapper", kind: "click", per: 125, base: 145000, growth: 1.2, desc: "+125 base points per smack" },
   { id: "orbital-cannon", name: "Orbital Smack Cannon", kind: "auto", per: 300, base: 420000, growth: 1.2, desc: "Auto-smacks 300x per second, from space" },
   { id: "platinum-palm", name: "Platinum Palm", kind: "special", base: 1500000, desc: "All points x3" },
+  { id: "heat-death-palm", name: "Heat Death Palm", kind: "special", base: 50000000, icon: "orbital-cannon", desc: "Next smack ends the universe." },
 ];
 
-let game = { balance: 0, runEarned: 0, lifetimeEarned: 0, owned: {}, stars: 0, lastSeen: 0 };
+const STAR_PERKS = [
+  { id: "severance", name: "Severance Package", cost: 2, max: 1, icon: "padded-palm", desc: "Start Prestige runs with 5 Palms + 5 Wind-Ups." },
+  { id: "muscle-memory", name: "Muscle Memory", cost: 2, max: 1, icon: "momentum", desc: "Combo +0.4s; expired combos halve." },
+  { id: "board", name: "Board of Directors", cost: 3, max: 1, icon: "titanium-palm", desc: "Optional auto-buy: best value, once/sec." },
+  { id: "offshore", name: "Offshore Hands", cost: 3, max: 1, icon: "smack-drone", desc: "Offline: 100% for 24h, not 50% for 8h." },
+  { id: "hostile-takeover", name: "Hostile Takeover", cost: 3, max: 1, icon: "frenzy-funnel", desc: "FRENZY starts at x6, not x8." },
+  { id: "brand-synergy", name: "Brand Synergy", cost: 2, growth: 3, max: 5, icon: "golden-glove", desc: "+25% all points per level." },
+  { id: "heat-death-rd", name: "Heat Death R&D", cost: 10, max: 1, icon: "orbital-cannon", desc: "Unlocks the Heat Death Palm." },
+];
+
+const FLUFF_PERKS = [
+  { id: "deja-vu", name: "Déjà Vu", cost: 1, max: 1, icon: "combo-grease", desc: "New universes start with 5 Butt Stars." },
+  { id: "cosmic-palm", name: "Cosmic Palm", cost: 2, max: 1, icon: "diamond-slapper", desc: "Manual smacks pay ×2 forever." },
+  { id: "deep-time", name: "Deep-Time Hands", cost: 2, max: 1, icon: "autohand", desc: "Auto-smackers pay ×2 forever." },
+  { id: "eternal-balance", name: "Eternal Balance", cost: 2, max: 1, icon: "rubber-cheeks", desc: "Balance: 6 hits, lasts 10s." },
+];
+
+let game = {
+  balance: 0, runEarned: 0, lifetimeEarned: 0, owned: {}, stars: 0,
+  starPerks: {}, starsSpent: 0, settings: { board: true },
+  universes: 0, fluff: 0, fluffPerks: {}, lastSeen: 0,
+};
 try {
   const saved = JSON.parse(localStorage.getItem("musey-clicker-v1") || "null");
-  if (saved && typeof saved === "object") game = { ...game, ...saved, owned: saved.owned || {} };
+  if (saved && typeof saved === "object") {
+    game = {
+      ...game, ...saved,
+      owned: saved.owned || {},
+      starPerks: saved.starPerks || {},
+      fluffPerks: saved.fluffPerks || {},
+      settings: { board: true, ...(saved.settings || {}) },
+    };
+  }
 } catch (e) { /* fresh start */ }
+game.starsSpent = Math.max(0, Math.floor(+game.starsSpent) || 0);
+game.universes = Math.max(0, Math.floor(+game.universes) || 0);
+game.fluff = Math.max(0, Math.floor(+game.fluff) || 0);
 
 function saveGame() {
   game.lastSeen = Date.now();
@@ -89,6 +128,19 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) saveG
 
 const owned = (id) => game.owned[id] || 0;
 const has = (id) => owned(id) > 0;
+const starPerk = (id) => game.starPerks[id] || 0;
+const hasStarPerk = (id) => starPerk(id) > 0;
+const fluffPerk = (id) => game.fluffPerks[id] || 0;
+const hasFluffPerk = (id) => fluffPerk(id) > 0;
+function availableStars() {
+  return Math.max(0, game.stars - game.starsSpent);
+}
+function starPerkCost(perk) {
+  return Math.ceil(perk.cost * Math.pow(perk.growth || 1, starPerk(perk.id)));
+}
+function frenzyAt() {
+  return hasStarPerk("hostile-takeover") ? 6 : 8;
+}
 
 function clickPowerFrom(map = game.owned) {
   let p = 0;
@@ -104,7 +156,9 @@ function autoRateFrom(map = game.owned) {
 function autoRate() { return autoRateFrom(); }
 function globalMultFrom(map = game.owned) {
   const get = (id) => (map[id] || 0) > 0;
-  return (1 + game.stars * 0.15) * (get("golden-glove") ? 2 : 1) *
+  return (1 + game.stars * 0.15) * Math.pow(1.25, starPerk("brand-synergy")) *
+    Math.pow(2, game.universes) *
+    (get("golden-glove") ? 2 : 1) *
     (get("platinum-palm") ? 3 : 1) * (get("rubber-cheeks") ? 1.25 : 1);
 }
 function globalMult() { return globalMultFrom(); }
@@ -131,17 +185,18 @@ function expectedIncome(map = game.owned) {
   const autos = autoRateFrom(map);
   const mult = globalMultFrom(map);
   const comboStacks = clamp(4 + rate * 4, 0, 40);
-  const frenzyUptime = clamp(comboStacks / 8, 0, 1) * 0.8;
+  const frenzyUptime = clamp(comboStacks / frenzyAt(), 0, 1) * 0.8;
   const manualPerSmack = (1 + power) * (0.5 + 0.85 * 0.8) *
     (1 + comboBonusPerStack(map) * comboStacks) *
     (get("momentum") ? 1.3 : 1) *
     (get("echo-smack") ? 1.15 : 1) *
     (get("critical-palm") ? 1.72 : 1) *
-    (1 + (get("frenzy-funnel") ? 0.5 * frenzyUptime : 0)) * mult;
+    (1 + (get("frenzy-funnel") ? 0.5 * frenzyUptime : 0)) *
+    (hasFluffPerk("cosmic-palm") ? 2 : 1) * mult;
   const manual = rate * manualPerSmack;
   // Click power helps autos only with square-root scaling, not 1:1. This keeps
   // either path from completely invalidating the other late in a run.
-  const auto = autos * (1 + Math.sqrt(power)) * mult;
+  const auto = autos * (1 + Math.sqrt(power)) * (hasFluffPerk("deep-time") ? 2 : 1) * mult;
   return { manual, auto, total: manual + auto, manualPerSmack, manualRate: rate, comboStacks, frenzyUptime };
 }
 function autoPointsPerSec() {
@@ -167,10 +222,19 @@ function fmt(n) {
 }
 
 function nextCost(u, count) {
-  return Math.ceil(u.base * Math.pow(u.growth || 1, count));
+  const universeScale = u.id === "heat-death-palm" ? Math.pow(20, game.universes) : 1;
+  return Math.ceil(u.base * universeScale * Math.pow(u.growth || 1, count));
+}
+function heatDeathCost() {
+  const heat = UPGRADES.find((u) => u.id === "heat-death-palm");
+  return heat ? nextCost(heat, 0) : Infinity;
+}
+function pendingFluff() {
+  if (!has("heat-death-palm")) return 0;
+  return 3 + Math.max(0, Math.floor(Math.log10(Math.max(1, game.runEarned / heatDeathCost()))));
 }
 function comboWindow() {
-  return has("combo-grease") ? 1600 : 900;
+  return (has("combo-grease") ? 1600 : 900) + (hasStarPerk("muscle-memory") ? 400 : 0);
 }
 function fmtRate(n) {
   if (n < 1) return n.toFixed(2);
@@ -514,10 +578,56 @@ function showMilestone(text) {
 /* ================= smacking ================= */
 let combo = 0, lastSmackAt = 0;
 
+/* Cheek Balance: alternate cheeks to earn a short manual-points bonus. */
+const CHEEK_BALANCE_MULT = 5;
+function cheekBalanceNeed() { return hasFluffPerk("eternal-balance") ? 6 : 8; }
+function cheekBalanceDuration() { return hasFluffPerk("eternal-balance") ? 10000 : 6000; }
+let cheekBalance = 0, lastCheekSide = "", cheekBalanceUntil = 0;
+let cheekBalanceWidth = "";
+
+function cheekBalanceMult(now) {
+  return now < cheekBalanceUntil ? CHEEK_BALANCE_MULT : 1;
+}
+
+function registerCheekBalance(side, now) {
+  if (now < cheekBalanceUntil) {
+    lastCheekSide = side;
+    return;
+  }
+  cheekBalance = side !== lastCheekSide
+    ? cheekBalance + 1
+    : Math.max(0, cheekBalance - 2);
+  lastCheekSide = side;
+  if (cheekBalance >= cheekBalanceNeed()) {
+    cheekBalance = 0;
+    cheekBalanceUntil = now + cheekBalanceDuration();
+    showMilestone(`PERFECTLY BALANCED! ×5 smack points for ${cheekBalanceDuration() / 1000} seconds. Both cheeks have been heard.`);
+  }
+}
+
+function syncCheekBalance(now) {
+  if (!cheekBalanceEl || !cheekBalanceFill) return;
+  const live = now < cheekBalanceUntil;
+  cheekBalanceEl.classList.toggle("show", totalSmacks > 0);
+  cheekBalanceEl.classList.toggle("live", live);
+  const width = live
+    ? `${clamp(100 * (cheekBalanceUntil - now) / cheekBalanceDuration(), 0, 100).toFixed(1)}%`
+    : `${cheekBalance * 100 / cheekBalanceNeed()}%`;
+  if (width !== cheekBalanceWidth) {
+    cheekBalanceWidth = width;
+    cheekBalanceFill.style.width = width;
+  }
+}
+
 function doSmack(fx, fy, strength, dirX) {
+  if (universeReloading) return;
   const now = performance.now();
   manualSmackTimes.push(now);
-  combo = now - lastSmackAt < comboWindow() ? combo + 1 : 1;
+  combo = now - lastSmackAt < comboWindow()
+    ? combo + 1
+    : hasStarPerk("muscle-memory") && combo > 1
+      ? Math.floor(combo / 2) + 1
+      : 1;
   lastSmackAt = now;
   totalSmacks++;
   renderTotalSmacks();
@@ -529,7 +639,7 @@ function doSmack(fx, fy, strength, dirX) {
   }
   const isMilestone = !!MILESTONES[totalSmacks];
   if (isMilestone) showMilestone(MILESTONES[totalSmacks]);
-  if (combo === 8) showMilestone("SMACK FRENZY!! He can't keep getting away with— wait, yes he can.");
+  if (combo === frenzyAt()) showMilestone("SMACK FRENZY!! He can't keep getting away with— wait, yes he can.");
   updateCombo();
 
   // nearer cheek takes the hit (x weighted; image is taller than wide)
@@ -537,6 +647,8 @@ function doSmack(fx, fy, strength, dirX) {
   const dR = Math.hypot((fx - CHEEK_R.x) * 1.17, fy - CHEEK_R.y);
   const hit = dL <= dR ? cheekL : cheekR;
   const other = dL <= dR ? cheekR : cheekL;
+  registerCheekBalance(hit === cheekL ? "L" : "R", now);
+  syncCheekBalance(now);
   cheekImpulse(hit, strength, dirX);
   pending.push({ at: now + 45, ch: other, amt: strength * 0.6, dirX: dirX * 0.7 });
   pending.push({ at: now + 70, ch: null, amt: strength, dirX }); // head wobble, handled specially
@@ -549,7 +661,8 @@ function doSmack(fx, fy, strength, dirX) {
     (0.5 + strength * 0.8) *
     (has("momentum") ? 1.3 : 1) *
     (1 + comboBonusPerStack() * Math.min(combo - 1, 40)) *
-    (combo >= 8 && has("frenzy-funnel") ? 1.5 : 1) *
+    (combo >= frenzyAt() && has("frenzy-funnel") ? 1.5 : 1) *
+    cheekBalanceMult(now) * (hasFluffPerk("cosmic-palm") ? 2 : 1) *
     globalMult() * (isCrit ? 10 : 1) * (isEcho ? 2 : 1);
   addPoints(gain);
 
@@ -562,7 +675,7 @@ function doSmack(fx, fy, strength, dirX) {
 
   playSmack(strength, combo);
   spawnFX(fx, fy, strength, dirX, isMilestone);
-  spawnPop(fx, fy - 0.04, strength + Math.min(combo, 14) * 0.035, combo >= 8, isCrit ? "CRITICAL!!" : null);
+  spawnPop(fx, fy - 0.04, strength + Math.min(combo, 14) * 0.035, combo >= frenzyAt(), isCrit ? "CRITICAL!!" : null);
   spawnGain(fx + 0.07, fy - 0.02, gain, isCrit);
   spawnHandprint(fx, fy, strength, currentHandRot);
   if (isEcho) {
@@ -572,6 +685,7 @@ function doSmack(fx, fy, strength, dirX) {
     }, 130);
   }
   if (navigator.vibrate) navigator.vibrate(Math.round(12 + strength * 18));
+  if (has("heat-death-palm")) startUniverseReload();
 }
 
 function updateCombo() {
@@ -582,7 +696,7 @@ function updateCombo() {
     comboEl.innerHTML = "&nbsp;";
     comboStat.classList.remove("hot");
   }
-  document.documentElement.classList.toggle("frenzy", combo >= 8);
+  document.documentElement.classList.toggle("frenzy", combo >= frenzyAt());
   if (combo === 0) comboFill.style.width = "0%";
 }
 
@@ -707,10 +821,10 @@ function spawnGain(x, y, amount, crit) {
   ], { duration: 820, easing: "ease-out" }).onfinish = () => el.remove();
 }
 
-function planPurchase(u) {
+function planPurchase(u, mode = buyMode) {
   const count = owned(u.id);
   if (u.kind === "special" && count >= 1) return { n: 0, cost: 0, maxed: true };
-  let want = u.kind === "special" ? 1 : buyMode === "max" ? 1000 : buyMode;
+  let want = u.kind === "special" ? 1 : mode === "max" ? 1000 : mode;
   let cost = 0, n = 0;
   while (n < want) {
     const c = nextCost(u, count + n);
@@ -730,7 +844,7 @@ function buildShop() {
     btn.dataset.upgrade = u.id;
     btn.setAttribute("aria-label", `Buy ${u.name}: ${u.desc}`);
     btn.innerHTML =
-      `<span class="up-icon"><img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false"><span class="up-owned">×0</span></span>` +
+      `<span class="up-icon"><img src="assets/icons/${u.icon || u.id}.webp" alt="" loading="lazy" draggable="false"><span class="up-owned">×0</span></span>` +
       `<span class="up-main"><span class="up-name"><span class="up-title">${u.name}</span></span>` +
       `<span class="up-desc">${u.desc}</span><span class="up-value"></span></span>` +
       `<span class="up-side"><span class="up-best">Best value</span>` +
@@ -742,16 +856,131 @@ function buildShop() {
     u._valueEl = btn.querySelector(".up-value");
     shopListEl.appendChild(btn);
   }
+
+  if (starListEl) {
+    starListEl.innerHTML = "";
+    for (const perk of STAR_PERKS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "upgrade star-perk";
+      btn.dataset.starPerk = perk.id;
+      btn.setAttribute("aria-label", `Buy permanent perk ${perk.name}: ${perk.desc}`);
+      btn.innerHTML =
+        `<span class="up-icon"><img src="assets/icons/${perk.icon}.webp" alt="" loading="lazy" draggable="false"><span class="up-owned">×0</span></span>` +
+        `<span class="up-main"><span class="up-name"><span class="up-title">${perk.name}</span></span>` +
+        `<span class="up-desc">${perk.desc}</span><span class="up-value">Permanent perk</span></span>` +
+        `<span class="up-side"><span class="up-best">Best value</span>` +
+        `<span class="up-cost"><span class="up-cost-num"></span></span></span>`;
+      btn.addEventListener("click", () => buyStarPerk(perk));
+      perk._btn = btn;
+      perk._costEl = btn.querySelector(".up-cost-num");
+      perk._ownedEl = btn.querySelector(".up-owned");
+      starListEl.appendChild(btn);
+    }
+  }
+
+  if (fluffListEl) {
+    fluffListEl.innerHTML = "";
+    for (const perk of FLUFF_PERKS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "upgrade fluff-perk";
+      btn.dataset.fluffPerk = perk.id;
+      btn.setAttribute("aria-label", `Buy eternal perk ${perk.name}: ${perk.desc}`);
+      btn.innerHTML =
+        `<span class="up-icon"><img src="assets/icons/${perk.icon}.webp" alt="" loading="lazy" draggable="false"><span class="up-owned">Owned</span></span>` +
+        `<span class="up-main"><span class="up-name"><span class="up-title">${perk.name}</span></span>` +
+        `<span class="up-desc">${perk.desc}</span><span class="up-value">Eternal perk</span></span>` +
+        `<span class="up-side"><span class="up-best">Best value</span>` +
+        `<span class="up-cost"><span class="up-cost-num"></span></span></span>`;
+      btn.addEventListener("click", () => buyFluffPerk(perk));
+      perk._btn = btn;
+      perk._costEl = btn.querySelector(".up-cost-num");
+      perk._ownedEl = btn.querySelector(".up-owned");
+      fluffListEl.appendChild(btn);
+    }
+  }
 }
 
-function buyUpgrade(u) {
-  const plan = planPurchase(u);
+function buyUpgrade(u, mode = buyMode) {
+  if (u.id === "heat-death-palm" && !hasStarPerk("heat-death-rd")) return;
+  const plan = planPurchase(u, mode);
   if (plan.n <= 0) return;
   game.balance -= plan.cost;
   game.owned[u.id] = owned(u.id) + plan.n;
   playBoop();
   updateShop();
   saveGame();
+}
+
+function buyStarPerk(perk) {
+  const count = starPerk(perk.id);
+  if (count >= perk.max) return;
+  const cost = starPerkCost(perk);
+  if (availableStars() < cost) return;
+  game.starsSpent += cost;
+  game.starPerks[perk.id] = count + 1;
+  playBoop();
+  updateShop();
+  saveGame();
+}
+
+function buyFluffPerk(perk) {
+  if (hasFluffPerk(perk.id) || game.fluff < perk.cost) return;
+  game.fluff -= perk.cost;
+  game.fluffPerks[perk.id] = 1;
+  playBoop();
+  updateShop();
+  saveGame();
+}
+
+const SHOP_TABS = {
+  upgrades: $("tab-upgrades"),
+  stars: $("tab-stars"),
+  universe: $("tab-universe"),
+};
+const SHOP_PANES = {
+  upgrades: $("pane-upgrades"),
+  stars: $("pane-stars"),
+  universe: $("pane-universe"),
+};
+function showShopTab(name) {
+  for (const [key, tab] of Object.entries(SHOP_TABS)) {
+    if (!tab) continue;
+    const on = key === name;
+    tab.classList.toggle("on", on);
+    tab.setAttribute("aria-selected", String(on));
+    if (SHOP_PANES[key]) SHOP_PANES[key].hidden = !on;
+  }
+}
+for (const [name, tab] of Object.entries(SHOP_TABS)) {
+  if (tab) tab.addEventListener("click", () => showShopTab(name));
+}
+if (boardToggle) {
+  boardToggle.addEventListener("change", (e) => {
+    game.settings.board = e.target.checked;
+    saveGame();
+  });
+}
+
+function tickBoard() {
+  if (universeReloading || !hasStarPerk("board") || !game.settings.board) return;
+  let best = null;
+  for (const u of UPGRADES) {
+    if (u.id === "heat-death-palm") continue; // ending the universe stays manual
+    const plan = planPurchase(u, 1);
+    if (plan.n <= 0) continue;
+    const value = purchaseValue(u, plan);
+    if (value.delta > 0 && (!best || value.payback < best.value.payback)) best = { u, value };
+  }
+  if (!best) return;
+  buyUpgrade(best.u, 1);
+  if (best.u._btn && !reducedMotion) {
+    best.u._btn.animate(
+      [{ filter: "brightness(1.35)" }, { filter: "none" }],
+      { duration: 380, easing: "ease-out" }
+    );
+  }
 }
 
 let prestigeInfoCache = "";
@@ -777,26 +1006,81 @@ function updateShop() {
     const count = owned(u.id);
     const isBest = best && best.u === u;
     u._btn.classList.toggle("best-value", !!isBest);
-    if (plan.maxed) {
+    const locked = u.id === "heat-death-palm" && !hasStarPerk("heat-death-rd");
+    if (locked) {
+      u._btn.disabled = true;
+      u._btn.classList.remove("maxed", "afford");
+      setText(u._costEl, "Locked");
+      setText(u._valueEl, "Needs Heat Death R&D");
+    } else if (plan.maxed) {
       u._btn.disabled = true;
       u._btn.classList.add("maxed");
       u._btn.classList.remove("afford");
       setText(u._costEl, "Owned");
-      setText(u._valueEl, "Bonus active");
+      setText(u._valueEl, u.id === "heat-death-palm" ? "Universe armed" : "Bonus active");
     } else {
       u._btn.disabled = plan.n <= 0;
       u._btn.classList.toggle("afford", plan.n > 0);
       u._btn.classList.remove("maxed");
       setText(u._costEl, (plan.n > 1 ? `${plan.n}× ` : "") + fmt(plan.n > 0 ? plan.cost : nextCost(u, count)));
-      setText(u._valueEl, `+${fmtRate(value.delta)}/s • back ~${formatPayback(value.payback)}`);
+      setText(u._valueEl, u.id === "heat-death-palm"
+        ? "Reloads the universe"
+        : `+${fmtRate(value.delta)}/s • back ~${formatPayback(value.payback)}`);
     }
     setText(u._ownedEl, u.kind === "special" ? "Owned" : `×${count}`);
     const ownedVis = count > 0 ? "visible" : "hidden";
     if (u._ownedEl.style.visibility !== ownedVis) u._ownedEl.style.visibility = ownedVis;
   }
+  if (starInfoEl) {
+    setText(starInfoEl,
+      `★ ${availableStars()} available • ${game.stars} total\nTotal stars still grant +15% points each.`);
+  }
+  for (const perk of STAR_PERKS) {
+    if (!perk._btn) continue;
+    const count = starPerk(perk.id);
+    const maxed = count >= perk.max;
+    const cost = starPerkCost(perk);
+    const afford = !maxed && availableStars() >= cost;
+    perk._btn.disabled = !afford;
+    perk._btn.classList.toggle("maxed", maxed);
+    perk._btn.classList.toggle("afford", afford);
+    setText(perk._costEl, maxed ? "Owned" : `★ ${cost}`);
+    setText(perk._ownedEl, perk.max === 1 ? "Owned" : `×${count}/${perk.max}`);
+    const ownedVis = count > 0 ? "visible" : "hidden";
+    if (perk._ownedEl.style.visibility !== ownedVis) perk._ownedEl.style.visibility = ownedVis;
+  }
+  if (boardToggleEl && boardToggle) {
+    boardToggleEl.hidden = !hasStarPerk("board");
+    if (boardToggle.checked !== !!game.settings.board) boardToggle.checked = !!game.settings.board;
+  }
+
+  if (fluffInfoEl) {
+    const armed = pendingFluff();
+    setText(fluffInfoEl,
+      `✦ ${game.fluff} Primordial Fluff • Universe #${game.universes + 1}` +
+      `\n${armed ? `Heat Death armed: reload for +${armed} ✦` : `Universe multiplier ×${Math.pow(2, game.universes)}`}`);
+  }
+  for (const perk of FLUFF_PERKS) {
+    if (!perk._btn) continue;
+    const ownedFluff = hasFluffPerk(perk.id);
+    const afford = !ownedFluff && game.fluff >= perk.cost;
+    perk._btn.disabled = !afford;
+    perk._btn.classList.toggle("maxed", ownedFluff);
+    perk._btn.classList.toggle("afford", afford);
+    setText(perk._costEl, ownedFluff ? "Owned" : `✦ ${perk.cost}`);
+    const ownedVis = ownedFluff ? "visible" : "hidden";
+    if (perk._ownedEl.style.visibility !== ownedVis) perk._ownedEl.style.visibility = ownedVis;
+  }
+  if (doomEl) doomEl.hidden = !has("heat-death-palm") || universeReloading;
+  if (taglineEl) {
+    setText(taglineEl, game.universes > 0
+      ? `He knows what he did. (Universe #${game.universes + 1})`
+      : "He knows what he did.");
+  }
+
   const pending = pendingStars();
   const info =
-    `★ <b>${game.stars}</b> Butt Stars owned (+15% points each, forever).<br>` +
+    `★ <b>${availableStars()}</b> Butt Stars available • ${game.stars} total (+15% each).<br>` +
     (pending > 0
       ? `Prestige now for <b>+${pending} ★</b> — resets points & upgrades.`
       : `Earn ${fmt(pointsToNextStar())} more pts this run for your next ★.`);
@@ -817,6 +1101,13 @@ for (const [id, mode] of [["buy-1", 1], ["buy-10", 10], ["buy-max", "max"]]) {
 }
 
 let prestigeArmedUntil = 0;
+const PRESTIGE_LINES = [
+  "New logo. Same butt.",
+  "The rebrand meeting adjourned directly to the butt.",
+  "Legal approved the reset. Legal is also smacking.",
+  "A fresh Musey approaches, legally distinct and unsmacked… for now.",
+  "Same Musey, new fiscal quarter.",
+];
 prestigeBtn.addEventListener("click", () => {
   const pending = pendingStars();
   if (pending <= 0) return;
@@ -834,14 +1125,97 @@ prestigeBtn.addEventListener("click", () => {
   game.stars += pending;
   game.balance = 0;
   game.runEarned = 0;
-  game.owned = {};
+  game.owned = hasStarPerk("severance")
+    ? { "padded-palm": 5, "windup-hand": 5 }
+    : {};
   prestigeArmedUntil = 0;
   prestigeBtn.textContent = "Prestige";
   prestigeBtn.classList.remove("confirm");
-  showMilestone(`★ Prestige! +${pending} Butt Stars. A fresh Musey approaches, butt unsmacked... for now.`);
+  showMilestone(`★ Prestige! +${pending} Butt Stars. ${PRESTIGE_LINES[(Math.random() * PRESTIGE_LINES.length) | 0]}`);
   spawnFX(BUTT.x, BUTT.y, 1.2, 0, true);
   updateShop();
   saveGame();
+});
+
+/* ================= Universe Reload ================= */
+let universeReloading = false;
+let universeTimers = [];
+
+function setUniverseScene(title, line) {
+  if (universeTitle) universeTitle.textContent = title;
+  if (universeLine) universeLine.textContent = line;
+}
+
+function finishUniverseReload() {
+  if (!universeReloading) return;
+  for (const timer of universeTimers) clearTimeout(timer);
+  universeTimers = [];
+
+  const gain = pendingFluff();
+  game.fluff += gain;
+  game.universes++;
+  game.balance = 0;
+  game.runEarned = 0;
+  game.owned = {};
+  game.stars = hasFluffPerk("deja-vu") ? 5 : 0;
+  game.starsSpent = 0;
+  game.starPerks = {};
+  combo = 0;
+  cheekBalance = 0;
+  cheekBalanceUntil = 0;
+  lastCheekSide = "";
+  particles = [];
+  rings = [];
+  pending.length = 0;
+  prestigeArmedUntil = 0;
+  prestigeBtn.textContent = "Prestige";
+  prestigeBtn.classList.remove("confirm");
+
+  if (universeOverlay) universeOverlay.hidden = true;
+  universeReloading = false;
+  updateCombo();
+  syncCheekBalance(performance.now());
+  updateShop();
+  showShopTab("universe");
+  showMilestone(`Universe #${game.universes + 1}. +${gain} ✦ Primordial Fluff. All points now ×${Math.pow(2, game.universes)} from completed universes.`);
+  saveGame();
+}
+
+function startUniverseReload() {
+  if (universeReloading || !has("heat-death-palm")) return;
+  universeReloading = true;
+  updateShop();
+  if (!universeOverlay) {
+    universeTimers.push(setTimeout(finishUniverseReload, 450));
+    return;
+  }
+
+  const scenes = reducedMotion
+    ? [
+        [0, "Heat death.", "Every star has gone out. One butt remains warm."],
+        [350, `Universe #${game.universes + 2}`, "Same Musey. New spacetime. He again knows what he did."],
+      ]
+    : [
+        [0, "Heat death.", "Every star has gone out. One butt remains warm."],
+        [900, "Reinflating spacetime…", "Primordial fluff condenses into a suspiciously familiar mascot."],
+        [1850, `Universe #${game.universes + 2}`, "Same Musey. New spacetime. He again knows what he did."],
+      ];
+  universeTimers.push(setTimeout(() => {
+    universeOverlay.hidden = false;
+    for (const [delay, title, line] of scenes) {
+      universeTimers.push(setTimeout(() => setUniverseScene(title, line), delay));
+    }
+    universeTimers.push(setTimeout(finishUniverseReload, reducedMotion ? 800 : 2750));
+  }, 450));
+}
+
+if (universeOverlay) {
+  universeOverlay.addEventListener("click", finishUniverseReload);
+}
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && universeReloading && universeOverlay && !universeOverlay.hidden) {
+    finishUniverseReload();
+  }
 });
 
 /* Auto-strikes always use the original white plush glove. */
@@ -937,9 +1311,11 @@ function applyOffline() {
   if (!game.lastSeen || autoRate() <= 0) return;
   const elapsed = (Date.now() - game.lastSeen) / 1000;
   if (elapsed < 120) return;
-  const capped = Math.min(elapsed, 8 * 3600);
-  const pts = autoPointsPerSec() * capped * 0.5;
-  const smacks = Math.floor(autoRate() * capped * 0.5);
+  const offshore = hasStarPerk("offshore");
+  const capped = Math.min(elapsed, (offshore ? 24 : 8) * 3600);
+  const rate = offshore ? 1 : 0.5;
+  const pts = autoPointsPerSec() * capped * rate;
+  const smacks = Math.floor(autoRate() * capped * rate);
   if (pts < 1) return;
   addPoints(pts);
   totalSmacks += smacks;
@@ -969,6 +1345,7 @@ function encodeShare() {
     pts: Math.floor(game.lifetimeEarned),
     hard: +hardest.toFixed(2),
     stars: game.stars,
+    uni: game.universes,
     up: Object.values(game.owned).reduce((a, b) => a + b, 0),
     ts: Math.floor(Date.now() / 1000),
   };
@@ -986,6 +1363,7 @@ function decodeShare(str) {
     for (const k of ["sm", "pts", "hard", "stars", "up"]) {
       if (!Number.isFinite(payload[k]) || payload[k] < 0) return null;
     }
+    if (payload.uni !== undefined && (!Number.isFinite(payload.uni) || payload.uni < 0)) return null;
     return payload;
   } catch (e) {
     return null;
@@ -1040,7 +1418,7 @@ function showSharedScore() {
   banner.setAttribute("role", "status");
   banner.innerHTML =
     `<span class="shared-text">★ Shared score: <b>${fmt(theirs)} smacks</b> • ${fmt(p.pts)} lifetime pts • ` +
-    `hardest: <b>${tierName(p.hard)}</b> • ★${p.stars} • ${fmt(p.up)} upgrades<br><span class="shared-verdict">${verdict}</span></span>` +
+    `hardest: <b>${tierName(p.hard)}</b> • ★${p.stars}${p.uni ? ` • Universe #${p.uni + 1}` : ""} • ${fmt(p.up)} upgrades<br><span class="shared-verdict">${verdict}</span></span>` +
     `<button type="button" class="shared-x" aria-label="Dismiss shared score">×</button>`;
   banner.querySelector(".shared-x").addEventListener("click", () => {
     banner.remove();
@@ -1052,12 +1430,23 @@ function showSharedScore() {
   document.title = `${fmt(theirs)} smacks! Can you beat it? | Smack Musey!`;
 }
 
-$("reset-btn").addEventListener("click", () => {
+let resetArmedUntil = 0;
+$("reset-btn").addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  const now = performance.now();
+  if (now > resetArmedUntil) {
+    resetArmedUntil = now + 3000;
+    btn.textContent = "Truly forgive?";
+    setTimeout(() => { btn.textContent = "Forgive Musey"; }, 3000);
+    return;
+  }
+  resetArmedUntil = 0;
+  btn.textContent = "Forgive Musey";
   totalSmacks = 0;
   combo = 0;
   renderTotalSmacks(true);
   updateCombo();
-  showMilestone("Forgiven. For now.");
+  showMilestone("Forgiven. For now. He won't learn.");
 });
 
 /* ================= hand painting (shared by pointermove + rAF) ================= */
@@ -1111,7 +1500,7 @@ function paintHand(now) {
 
 /* ================= main loop ================= */
 let lastT = performance.now();
-let autoSmackAcc = 0, autoVisualT = 0.8, shopTickT = 0;
+let autoSmackAcc = 0, autoVisualT = 0.8, shopTickT = 0, boardTickT = 0;
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -1137,15 +1526,25 @@ function frame(now) {
   if (shakeMag < 0.05) shakeMag = 0;
   applyTransforms(now);
 
+  syncCheekBalance(now);
+
   // combo expiry + timer bar
   if (combo > 0) {
     comboFill.style.width = clamp(100 * (1 - (now - lastSmackAt) / comboWindow()), 0, 100) + "%";
-    if (now - lastSmackAt > comboWindow()) { combo = 0; updateCombo(); }
+    if (now - lastSmackAt > comboWindow()) {
+      if (hasStarPerk("muscle-memory") && combo > 1) {
+        combo = Math.floor(combo / 2);
+        lastSmackAt = now;
+      } else {
+        combo = 0;
+      }
+      updateCombo();
+    }
   }
 
   // clicker: auto-smackers earn continuously; butt jiggles on its own
   const aRate = autoRate();
-  if (aRate > 0) {
+  if (aRate > 0 && !universeReloading) {
     addPoints(autoPointsPerSec() * dt);
     autoSmackAcc += aRate * dt;
     const whole = Math.floor(autoSmackAcc);
@@ -1166,6 +1565,8 @@ function frame(now) {
   }
   shopTickT -= dt;
   if (shopTickT <= 0) { shopTickT = 0.15; updateShop(); }
+  boardTickT -= dt;
+  if (boardTickT <= 0) { boardTickT = 0.8; tickBoard(); }
 
   // idle taunt: left alone too long, the butt wiggles invitingly
   if (!reducedMotion && now - lastSmackAt > 7000 && now - lastTauntAt > 11000 && lastSmackAt !== 0) {

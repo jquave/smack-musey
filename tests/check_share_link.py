@@ -80,7 +80,7 @@ try:
       document.querySelector('[data-upgrade=padded-palm]').click();
       return true;
     })()""")
-    stats = evl("({sm: totalSmacks, pts: Math.floor(game.lifetimeEarned), stars: game.stars, up: Object.values(game.owned).reduce((a,b)=>a+b,0)})")
+    stats = evl("({sm: totalSmacks, pts: Math.floor(game.lifetimeEarned), stars: game.stars, uni: game.universes, up: Object.values(game.owned).reduce((a,b)=>a+b,0)})")
     url = evl("shareURL()")
     check("share URL has ?s= payload", isinstance(url, str) and "?s=" in url, f"({url[:70]}...)")
 
@@ -91,6 +91,7 @@ try:
     check("payload smacks match page", decoded["sm"] == stats["sm"], f"({decoded['sm']} vs {stats['sm']})")
     check("payload points match page", decoded["pts"] == stats["pts"], f"({decoded['pts']} vs {stats['pts']})")
     check("payload upgrades match page", decoded["up"] == stats["up"], f"({decoded['up']} vs {stats['up']})")
+    check("payload universe matches page", decoded["uni"] == stats["uni"], f"({decoded['uni']} vs {stats['uni']})")
     check("payload is url-safe (no +, /, =)", all(c not in payload_b64 for c in "+/="))
 
     # Share button copies the permalink (clipboard captured in-page)
