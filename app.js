@@ -21,11 +21,24 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matc
 const AMP = reducedMotion ? 0.35 : 1;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
+function setText(el, text) {
+  if (el && el.textContent !== text) el.textContent = text;
+}
 
 /* ================= persistent state ================= */
 let totalSmacks = parseInt(localStorage.getItem("musey-smacks") || "0", 10) || 0;
 let muted = localStorage.getItem("musey-muted") === "1";
-countEl.textContent = totalSmacks.toLocaleString();
+let smackSavedAt = 0;
+function renderTotalSmacks(forceSave = false) {
+  setText(countEl, totalSmacks.toLocaleString());
+  const now = Date.now();
+  if (forceSave || now - smackSavedAt >= 1000) {
+    smackSavedAt = now;
+    try { localStorage.setItem("musey-smacks", String(totalSmacks)); } catch (e) { /* storage blocked */ }
+  }
+}
+window.addEventListener("beforeunload", () => renderTotalSmacks(true));
+renderTotalSmacks(true);
 if (totalSmacks > 0) hintRing.classList.add("gone");
 
 function tierName(s) {
@@ -42,23 +55,23 @@ const balanceEl = $("balance"), ratesEl = $("rates"), shopListEl = $("shop-list"
 const prestigeInfoEl = $("prestige-info"), prestigeBtn = $("prestige-btn");
 
 const UPGRADES = [
-  { id: "padded-palm", name: "Padded Palm", kind: "click", per: 1, base: 15, growth: 1.55, desc: "+1 point per smack" },
-  { id: "windup-hand", name: "Wind-Up Hand", kind: "auto", per: 0.2, base: 30, growth: 1.22, desc: "Auto-smacks 0.2x per second" },
-  { id: "firm-grip", name: "Firm Grip", kind: "click", per: 4, base: 120, growth: 1.6, desc: "+4 points per smack" },
-  { id: "autohand", name: "Auto-Hand 3000", kind: "auto", per: 1, base: 180, growth: 1.24, desc: "Auto-smacks 1x per second" },
-  { id: "momentum", name: "Momentum Training", kind: "special", base: 600, desc: "Swing speed counts much more toward points" },
-  { id: "combo-grease", name: "Combo Grease", kind: "special", base: 900, desc: "Combo window stretches 0.9s to 1.6s" },
-  { id: "titanium-palm", name: "Titanium Palm", kind: "click", per: 20, base: 950, growth: 1.65, desc: "+20 points per smack" },
-  { id: "smack-drone", name: "Smack Drone", kind: "auto", per: 5, base: 1100, growth: 1.26, desc: "Auto-smacks 5x per second" },
-  { id: "rubber-cheeks", name: "Rubberized Cheeks", kind: "special", base: 1400, desc: "Jiggle lasts way longer. +25% all points" },
-  { id: "frenzy-funnel", name: "Frenzy Funnel", kind: "special", base: 2800, desc: "SMACK FRENZY pays 3x points" },
-  { id: "echo-smack", name: "Echo Smack", kind: "special", base: 3400, desc: "12% chance a smack echoes for double points" },
-  { id: "golden-glove", name: "Golden Glove", kind: "special", base: 6000, desc: "All points x2" },
-  { id: "diamond-slapper", name: "Diamond Slapper", kind: "click", per: 90, base: 7500, growth: 1.7, desc: "+90 points per smack" },
-  { id: "butler-bot", name: "Butler Bot", kind: "auto", per: 26, base: 7800, growth: 1.28, desc: "Auto-smacks 26x per second. Politely." },
-  { id: "critical-palm", name: "Critical Palm", kind: "special", base: 9000, desc: "6% chance of CRITICAL: x10 points" },
-  { id: "orbital-cannon", name: "Orbital Smack Cannon", kind: "auto", per: 140, base: 55000, growth: 1.3, desc: "Auto-smacks 140x per second, from space" },
-  { id: "platinum-palm", name: "Platinum Palm", kind: "special", base: 60000, desc: "All points x3" },
+  { id: "padded-palm", name: "Padded Palm", kind: "click", per: 1, base: 30, growth: 1.2, desc: "+1 base point per smack" },
+  { id: "windup-hand", name: "Wind-Up Hand", kind: "auto", per: 0.5, base: 30, growth: 1.2, desc: "Auto-smacks 0.5x per second" },
+  { id: "autohand", name: "Auto-Hand 3000", kind: "auto", per: 2, base: 260, growth: 1.2, desc: "Auto-smacks 2x per second" },
+  { id: "firm-grip", name: "Firm Grip", kind: "click", per: 5, base: 500, growth: 1.2, desc: "+5 base points per smack" },
+  { id: "momentum", name: "Momentum Training", kind: "special", base: 750, desc: "+30% points from your smacks" },
+  { id: "combo-grease", name: "Combo Grease", kind: "special", base: 1800, desc: "Combo lasts 1.6s; each stack +5%" },
+  { id: "smack-drone", name: "Smack Drone", kind: "auto", per: 10, base: 2900, growth: 1.2, desc: "Auto-smacks 10x per second" },
+  { id: "rubber-cheeks", name: "Rubberized Cheeks", kind: "special", base: 7500, desc: "Jiggle lasts way longer. +25% all points" },
+  { id: "titanium-palm", name: "Titanium Palm", kind: "click", per: 25, base: 8500, growth: 1.2, desc: "+25 base points per smack" },
+  { id: "echo-smack", name: "Echo Smack", kind: "special", base: 12000, desc: "15% chance a smack echoes for double points" },
+  { id: "frenzy-funnel", name: "Frenzy Funnel", kind: "special", base: 25000, desc: "SMACK FRENZY smacks pay +50%" },
+  { id: "butler-bot", name: "Butler Bot", kind: "auto", per: 50, base: 32000, growth: 1.2, desc: "Auto-smacks 50x per second. Politely." },
+  { id: "golden-glove", name: "Golden Glove", kind: "special", base: 75000, desc: "All points x2" },
+  { id: "critical-palm", name: "Critical Palm", kind: "special", base: 90000, desc: "8% chance of CRITICAL: x10 points" },
+  { id: "diamond-slapper", name: "Diamond Slapper", kind: "click", per: 125, base: 145000, growth: 1.2, desc: "+125 base points per smack" },
+  { id: "orbital-cannon", name: "Orbital Smack Cannon", kind: "auto", per: 300, base: 420000, growth: 1.2, desc: "Auto-smacks 300x per second, from space" },
+  { id: "platinum-palm", name: "Platinum Palm", kind: "special", base: 1500000, desc: "All points x3" },
 ];
 
 let game = { balance: 0, runEarned: 0, lifetimeEarned: 0, owned: {}, stars: 0, lastSeen: 0 };
@@ -77,25 +90,65 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) saveG
 const owned = (id) => game.owned[id] || 0;
 const has = (id) => owned(id) > 0;
 
-function clickPower() {
+function clickPowerFrom(map = game.owned) {
   let p = 0;
-  for (const u of UPGRADES) if (u.kind === "click") p += u.per * owned(u.id);
+  for (const u of UPGRADES) if (u.kind === "click") p += u.per * (map[u.id] || 0);
   return p;
 }
-function autoRate() {
+function clickPower() { return clickPowerFrom(); }
+function autoRateFrom(map = game.owned) {
   let r = 0;
-  for (const u of UPGRADES) if (u.kind === "auto") r += u.per * owned(u.id);
+  for (const u of UPGRADES) if (u.kind === "auto") r += u.per * (map[u.id] || 0);
   return r;
 }
-function globalMult() {
-  return (1 + game.stars * 0.15) * (has("golden-glove") ? 2 : 1) *
-    (has("platinum-palm") ? 3 : 1) * (has("rubber-cheeks") ? 1.25 : 1);
+function autoRate() { return autoRateFrom(); }
+function globalMultFrom(map = game.owned) {
+  const get = (id) => (map[id] || 0) > 0;
+  return (1 + game.stars * 0.15) * (get("golden-glove") ? 2 : 1) *
+    (get("platinum-palm") ? 3 : 1) * (get("rubber-cheeks") ? 1.25 : 1);
+}
+function globalMult() { return globalMultFrom(); }
+
+let manualSmackTimes = [];
+function estimatedManualRate() {
+  const cutoff = performance.now() - 30000;
+  while (manualSmackTimes.length && manualSmackTimes[0] < cutoff) manualSmackTimes.shift();
+  if (manualSmackTimes.length < 4) return 1.5;
+  const spanSec = Math.max((manualSmackTimes[manualSmackTimes.length - 1] - manualSmackTimes[0]) / 1000, 1);
+  return clamp((manualSmackTimes.length - 1) / spanSec, 0.25, 5);
+}
+function comboBonusPerStack(map = game.owned) {
+  return (map["combo-grease"] || 0) > 0 ? 0.05 : 0.03;
+}
+
+// One shared income model drives both real auto earnings and shop value labels.
+// Manual values use a typical 0.85-strength smack, your recent pace, expected
+// combo size, and the expected value of echo/critical rolls.
+function expectedIncome(map = game.owned) {
+  const get = (id) => (map[id] || 0) > 0;
+  const rate = estimatedManualRate();
+  const power = clickPowerFrom(map);
+  const autos = autoRateFrom(map);
+  const mult = globalMultFrom(map);
+  const comboStacks = clamp(4 + rate * 4, 0, 40);
+  const frenzyUptime = clamp(comboStacks / 8, 0, 1) * 0.8;
+  const manualPerSmack = (1 + power) * (0.5 + 0.85 * 0.8) *
+    (1 + comboBonusPerStack(map) * comboStacks) *
+    (get("momentum") ? 1.3 : 1) *
+    (get("echo-smack") ? 1.15 : 1) *
+    (get("critical-palm") ? 1.72 : 1) *
+    (1 + (get("frenzy-funnel") ? 0.5 * frenzyUptime : 0)) * mult;
+  const manual = rate * manualPerSmack;
+  // Click power helps autos only with square-root scaling, not 1:1. This keeps
+  // either path from completely invalidating the other late in a run.
+  const auto = autos * (1 + Math.sqrt(power)) * mult;
+  return { manual, auto, total: manual + auto, manualPerSmack, manualRate: rate, comboStacks, frenzyUptime };
 }
 function autoPointsPerSec() {
-  return autoRate() * (1 + clickPower()) * 0.6 * globalMult();
+  return expectedIncome().auto;
 }
 function perSmackAvg() {
-  return (1 + clickPower()) * (0.5 + 0.85 * (has("momentum") ? 1.6 : 0.8)) * globalMult();
+  return expectedIncome().manualPerSmack;
 }
 function addPoints(n) {
   game.balance += n;
@@ -119,8 +172,33 @@ function nextCost(u, count) {
 function comboWindow() {
   return has("combo-grease") ? 1600 : 900;
 }
+function fmtRate(n) {
+  if (n < 1) return n.toFixed(2);
+  if (n < 10) return n.toFixed(1);
+  return fmt(n);
+}
+function formatPayback(sec) {
+  if (!Number.isFinite(sec)) return "—";
+  if (sec < 60) return `${Math.max(1, Math.ceil(sec))}s`;
+  if (sec < 3600) return `${(sec / 60).toFixed(sec < 600 ? 1 : 0)}m`;
+  if (sec < 86400) return `${(sec / 3600).toFixed(sec < 36000 ? 1 : 0)}h`;
+  return `${(sec / 86400).toFixed(1)}d`;
+}
+function purchaseValue(u, plan) {
+  if (plan.maxed) return { n: 0, cost: 0, delta: 0, payback: Infinity };
+  const n = plan.n > 0 ? plan.n : 1;
+  const cost = plan.n > 0 ? plan.cost : nextCost(u, owned(u.id));
+  const before = expectedIncome().total;
+  const afterMap = { ...game.owned, [u.id]: owned(u.id) + n };
+  const delta = Math.max(0, expectedIncome(afterMap).total - before);
+  return { n, cost, delta, payback: delta > 0 ? cost / delta : Infinity };
+}
+const STAR_POINT_THRESHOLD = 100000;
 function pendingStars() {
-  return Math.floor(Math.sqrt(game.runEarned / 25000));
+  return Math.floor(Math.sqrt(game.runEarned / STAR_POINT_THRESHOLD));
+}
+function pointsToNextStar() {
+  return Math.max(0, Math.pow(pendingStars() + 1, 2) * STAR_POINT_THRESHOLD - game.runEarned);
 }
 
 /* ================= audio ================= */
@@ -175,17 +253,28 @@ function playSmack(strength, comboNow, vol = 1) {
 
 function playSmackNow(strength, comboNow, vol = 1) {
   if (muted || !audioCtx || !smackBuffer) return;
+  const now = audioCtx.currentTime;
   const src = audioCtx.createBufferSource();
   src.buffer = smackBuffer;
-  // pitch ladder: combos climb
-  src.playbackRate.value = 0.9 + 0.28 * strength + Math.min(comboNow || 1, 20) * 0.012 + Math.random() * 0.08;
+  // Baseline pitch climbs with strength/combo. Every individual smack then
+  // gets a small two-axis wobble: playback-rate jitter changes pitch and
+  // duration together, while detune adds an independent pitch-only offset.
+  const baseRate = 0.9 + 0.28 * strength + Math.min(comboNow || 1, 20) * 0.012;
+  src.playbackRate.value = baseRate * rand(0.96, 1.04);
+  if (src.detune) src.detune.value = rand(-45, 45);
+  // Randomize the audible tail too, with a tiny fade so shortening it cannot click.
+  const audibleDuration = (smackBuffer.duration / src.playbackRate.value) * rand(0.86, 1);
+  const baseGain = clamp(0.45 + 0.55 * strength, 0, 1) * vol;
   const gain = audioCtx.createGain();
-  gain.gain.value = clamp(0.45 + 0.55 * strength, 0, 1) * vol;
+  gain.gain.setValueAtTime(baseGain, now);
+  gain.gain.setValueAtTime(baseGain, now + audibleDuration * 0.72);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + audibleDuration);
   src.connect(gain).connect(audioCtx.destination);
-  src.start();
+  src.start(now);
+  src.stop(now + audibleDuration + 0.03);
   // subtle low thump under only the hardest manual hits
   if (strength > 1.05 && vol > 0.5) {
-    const t = audioCtx.currentTime;
+    const t = now;
     const osc = audioCtx.createOscillator();
     const og = audioCtx.createGain();
     osc.frequency.setValueAtTime(105, t);
@@ -427,11 +516,11 @@ let combo = 0, lastSmackAt = 0;
 
 function doSmack(fx, fy, strength, dirX) {
   const now = performance.now();
+  manualSmackTimes.push(now);
   combo = now - lastSmackAt < comboWindow() ? combo + 1 : 1;
   lastSmackAt = now;
   totalSmacks++;
-  countEl.textContent = totalSmacks.toLocaleString();
-  localStorage.setItem("musey-smacks", String(totalSmacks));
+  renderTotalSmacks();
   hintRing.classList.add("gone");
   if (strength > hardest) {
     hardest = strength;
@@ -454,12 +543,13 @@ function doSmack(fx, fy, strength, dirX) {
   body1.vs += 5.5 * strength;
 
   // clicker: points for this smack
-  const isCrit = has("critical-palm") && Math.random() < 0.06;
-  const isEcho = has("echo-smack") && Math.random() < 0.12;
+  const isCrit = has("critical-palm") && Math.random() < 0.08;
+  const isEcho = has("echo-smack") && Math.random() < 0.15;
   let gain = (1 + clickPower()) *
-    (0.5 + strength * (has("momentum") ? 1.6 : 0.8)) *
-    (1 + 0.03 * Math.min(combo - 1, 40)) *
-    (combo >= 8 && has("frenzy-funnel") ? 3 : 1) *
+    (0.5 + strength * 0.8) *
+    (has("momentum") ? 1.3 : 1) *
+    (1 + comboBonusPerStack() * Math.min(combo - 1, 40)) *
+    (combo >= 8 && has("frenzy-funnel") ? 1.5 : 1) *
     globalMult() * (isCrit ? 10 : 1) * (isEcho ? 2 : 1);
   addPoints(gain);
 
@@ -640,14 +730,16 @@ function buildShop() {
     btn.dataset.upgrade = u.id;
     btn.setAttribute("aria-label", `Buy ${u.name}: ${u.desc}`);
     btn.innerHTML =
-      `<span class="up-icon"><img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false"></span>` +
-      `<span class="up-main"><span class="up-name">${u.name}<span class="up-owned"></span></span>` +
-      `<span class="up-desc">${u.desc}</span></span>` +
-      `<span class="up-cost"><img src="assets/icons/coin.webp" alt="" draggable="false"><span class="up-cost-num"></span></span>`;
+      `<span class="up-icon"><img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false"><span class="up-owned">×0</span></span>` +
+      `<span class="up-main"><span class="up-name"><span class="up-title">${u.name}</span></span>` +
+      `<span class="up-desc">${u.desc}</span><span class="up-value"></span></span>` +
+      `<span class="up-side"><span class="up-best">Best value</span>` +
+      `<span class="up-cost"><img src="assets/icons/coin.webp" alt="" draggable="false"><span class="up-cost-num"></span></span></span>`;
     btn.addEventListener("click", () => buyUpgrade(u));
     u._btn = btn;
     u._costEl = btn.querySelector(".up-cost-num");
     u._ownedEl = btn.querySelector(".up-owned");
+    u._valueEl = btn.querySelector(".up-value");
     shopListEl.appendChild(btn);
   }
 }
@@ -662,38 +754,58 @@ function buyUpgrade(u) {
   saveGame();
 }
 
+let prestigeInfoCache = "";
 function updateShop() {
-  balanceEl.textContent = fmt(game.balance);
-  const sps = autoPointsPerSec();
-  ratesEl.textContent =
-    `≈ ${fmt(perSmackAvg())} pts/smack` +
-    (autoRate() > 0 ? `  •  ${fmt(sps)} pts/s auto (${fmt(autoRate())} smacks/s)` : "") +
-    (game.stars > 0 ? `  •  ★${game.stars} (+${Math.round(game.stars * 15)}%)` : "");
+  setText(balanceEl, fmt(game.balance));
+  const income = expectedIncome();
+  const sps = income.auto;
+  setText(ratesEl,
+    `≈ ${fmtRate(income.manualPerSmack)} pts/smack` +
+    (autoRate() > 0 ? `  •  ${fmtRate(sps)} pts/s auto` : "") +
+    `\nValue est. at ~${fmtRate(income.manualRate)} manual smacks/s`);
+  let best = null;
+  const values = new Map();
+  for (const u of UPGRADES) {
+    const plan = planPurchase(u);
+    const value = purchaseValue(u, plan);
+    values.set(u.id, { plan, value });
+    if (plan.n > 0 && value.delta > 0 && (!best || value.payback < best.value.payback)) best = { u, value };
+  }
   for (const u of UPGRADES) {
     if (!u._btn) continue;
-    const plan = planPurchase(u);
+    const { plan, value } = values.get(u.id);
     const count = owned(u.id);
+    const isBest = best && best.u === u;
+    u._btn.classList.toggle("best-value", !!isBest);
     if (plan.maxed) {
       u._btn.disabled = true;
       u._btn.classList.add("maxed");
       u._btn.classList.remove("afford");
-      u._costEl.textContent = "Owned";
+      setText(u._costEl, "Owned");
+      setText(u._valueEl, "Bonus active");
     } else {
       u._btn.disabled = plan.n <= 0;
       u._btn.classList.toggle("afford", plan.n > 0);
       u._btn.classList.remove("maxed");
-      u._costEl.textContent = (plan.n > 1 ? `${plan.n}× ` : "") + fmt(plan.n > 0 ? plan.cost : nextCost(u, count));
+      setText(u._costEl, (plan.n > 1 ? `${plan.n}× ` : "") + fmt(plan.n > 0 ? plan.cost : nextCost(u, count)));
+      setText(u._valueEl, `+${fmtRate(value.delta)}/s • back ~${formatPayback(value.payback)}`);
     }
-    u._ownedEl.textContent = count > 0 ? (u.kind === "special" ? "Owned" : `Owned: ${count}`) : "";
-    u._ownedEl.style.display = count > 0 ? "" : "none";
+    setText(u._ownedEl, u.kind === "special" ? "Owned" : `×${count}`);
+    const ownedVis = count > 0 ? "visible" : "hidden";
+    if (u._ownedEl.style.visibility !== ownedVis) u._ownedEl.style.visibility = ownedVis;
   }
   const pending = pendingStars();
-  prestigeInfoEl.innerHTML =
+  const info =
     `★ <b>${game.stars}</b> Butt Stars owned (+15% points each, forever).<br>` +
     (pending > 0
       ? `Prestige now for <b>+${pending} ★</b> — resets points & upgrades.`
-      : `Earn ${fmt(25000 - game.runEarned > 0 ? 25000 - game.runEarned : 0)} more pts this run for your next ★.`);
+      : `Earn ${fmt(pointsToNextStar())} more pts this run for your next ★.`);
+  if (prestigeInfoCache !== info) {
+    prestigeInfoCache = info;
+    prestigeInfoEl.innerHTML = info;
+  }
   prestigeBtn.disabled = pending <= 0;
+  renderUpgradeVisuals();
 }
 
 for (const [id, mode] of [["buy-1", 1], ["buy-10", 10], ["buy-max", "max"]]) {
@@ -733,38 +845,205 @@ prestigeBtn.addEventListener("click", () => {
   saveGame();
 });
 
-/* An auto-smacker hand swoops in, strikes (jiggle + quieter smack), and leaves. */
-const autoHandEl = $("auto-hand");
-function showAutoSmack(strength) {
-  const cheek = Math.random() < 0.5 ? cheekL : cheekR;
+/* Owned upgrades rendered in the scene with their generated art. */
+const armyEl = $("upgrade-army");
+const charmsEl = $("special-charms");
+const autoLayerEl = $("auto-layer");
+const ARMY_SLOTS = {
+  "windup-hand": { left: "11%", top: "77%", size: "20%" },
+  "autohand": { left: "8%", top: "48%", size: "21%" },
+  "smack-drone": { left: "84%", top: "17%", size: "23%" },
+  "butler-bot": { left: "89%", top: "72%", size: "24%" },
+  "orbital-cannon": { left: "15%", top: "13%", size: "25%" },
+};
+let armySignature = "";
+let charmsSignature = "";
+let handSkinSrc = "";
+
+function currentGloveSrc() {
+  for (const id of ["platinum-palm", "golden-glove", "diamond-slapper", "titanium-palm", "firm-grip", "padded-palm"]) {
+    if (has(id)) return `assets/icons/${id}.webp`;
+  }
+  return "assets/hand.png";
+}
+
+function renderUpgradeVisuals() {
+  if (!armyEl || !charmsEl) return;
+  const autoOwned = UPGRADES.filter((u) => u.kind === "auto" && owned(u.id) > 0);
+  const sig = autoOwned.map((u) => `${u.id}:${owned(u.id)}`).join("|");
+  if (sig !== armySignature) {
+    armySignature = sig;
+    armyEl.innerHTML = "";
+    for (const u of autoOwned) {
+      const count = owned(u.id);
+      const slot = ARMY_SLOTS[u.id] || { left: "50%", top: "50%", size: "20%" };
+      const unit = document.createElement("div");
+      unit.className = "army-unit";
+      unit.dataset.upgrade = u.id;
+      unit.title = `${u.name} x${count}`;
+      unit.style.left = slot.left;
+      unit.style.top = slot.top;
+      unit.style.width = slot.size;
+      const period = clamp(2.6 / Math.sqrt(Math.max(u.per * count, 0.1)), 0.45, 2.6);
+      unit.style.setProperty("--period", period.toFixed(2) + "s");
+      unit.innerHTML = `<img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false">` +
+        `<span class="army-count">x${count}</span>`;
+      armyEl.appendChild(unit);
+    }
+  }
+
+  const specials = UPGRADES.filter((u) => u.kind === "special" && owned(u.id) > 0);
+  const csig = specials.map((u) => u.id).join("|");
+  if (csig !== charmsSignature) {
+    charmsSignature = csig;
+    charmsEl.innerHTML = "";
+    for (const u of specials) {
+      const charm = document.createElement("span");
+      charm.className = "special-charm";
+      charm.dataset.upgrade = u.id;
+      charm.title = u.name;
+      charm.innerHTML = `<img src="assets/icons/${u.id}.webp" alt="" loading="lazy" draggable="false">`;
+      charmsEl.appendChild(charm);
+    }
+    charmsEl.style.display = specials.length ? "" : "none";
+  }
+
+  const skin = currentGloveSrc();
+  if (skin !== handSkinSrc) {
+    handSkinSrc = skin;
+    for (const img of document.querySelectorAll("#hand img, .hand-ghost img, .auto-striker img")) {
+      img.src = skin;
+    }
+    handSize = null;
+  }
+}
+
+function pulseArmyUnit(id) {
+  const unit = armyEl ? armyEl.querySelector(`[data-upgrade="${id}"]`) : null;
+  if (!unit || reducedMotion) return;
+  unit.animate([
+    { transform: "translate(-50%,-50%) scale(1) rotate(0deg)" },
+    { transform: "translate(-50%,-50%) scale(1.16) rotate(-4deg)" },
+    { transform: "translate(-50%,-50%) scale(1) rotate(0deg)" },
+  ], { duration: 220, easing: "ease-out" });
+}
+
+/* Auto-smack choreography: individual strikes at low rates, faster repeated
+   strikes mid-game, then staggered multi-direction comic volleys. Income is
+   always continuous; at extreme rates a volley represents a batch. */
+const AUTO_DIRECTIONS = [-155, -115, -70, -25, 25, 70, 115, 160];
+let autoStrikers = [];
+let autoStrikeSeq = 0;
+
+function buildAutoStrikers() {
+  if (!autoLayerEl || autoStrikers.length) return;
+  for (let i = 0; i < 8; i++) {
+    const el = document.createElement("div");
+    el.className = "auto-striker";
+    el.innerHTML = `<img src="${handSkinSrc || "assets/hand.png"}" alt="" draggable="false">`;
+    el.dataset.busyUntil = "0";
+    autoLayerEl.appendChild(el);
+    autoStrikers.push(el);
+  }
+}
+
+function pickAutoTier() {
+  const tiers = UPGRADES.filter((u) => u.kind === "auto" && owned(u.id) > 0)
+    .map((u) => ({ u, weight: u.per * owned(u.id) }));
+  const total = tiers.reduce((a, t) => a + t.weight, 0);
+  if (!total) return null;
+  let roll = Math.random() * total;
+  for (const t of tiers) {
+    roll -= t.weight;
+    if (roll <= 0) return t.u;
+  }
+  return tiers[tiers.length - 1].u;
+}
+
+function autoVisualProfile(rate) {
+  if (rate <= 0) return { interval: 1, hands: 0, duration: 430, batch: 0 };
+  if (rate <= 2) return { interval: 1 / rate, hands: 1, duration: 430, batch: 1 };
+  if (rate <= 6) return { interval: clamp(1.8 / rate, 0.32, 0.9), hands: 1, duration: 350, batch: Math.max(1, Math.round(rate * 0.4)) };
+  if (rate <= 15) return { interval: 0.55, hands: 2, duration: 320, batch: Math.max(2, Math.round(rate * 0.55)) };
+  if (rate <= 40) return { interval: 0.65, hands: 3, duration: 295, batch: Math.round(rate * 0.65) };
+  if (rate <= 120) return { interval: 0.7, hands: 4, duration: 275, batch: Math.round(rate * 0.7) };
+  return { interval: 0.75, hands: 6, duration: 255, batch: Math.round(rate * 0.75) };
+}
+
+function getAutoStriker() {
+  buildAutoStrikers();
+  const now = performance.now();
+  return autoStrikers.find((el) => +el.dataset.busyUntil <= now) ||
+    autoStrikers[autoStrikeSeq++ % Math.max(autoStrikers.length, 1)];
+}
+
+function launchAutoStrike({ tier, angleDeg, duration, strength, soundVol, word, batch }) {
+  const cheek = angleDeg < -35 ? cheekL : angleDeg > 35 ? cheekR : (Math.random() < 0.5 ? cheekL : cheekR);
   const c = cheek === cheekL ? CHEEK_L : CHEEK_R;
-  const fx = c.x + rand(-0.03, 0.03), fy = c.y + rand(-0.02, 0.02);
-  const dirX = rand(-0.8, 0.8);
+  const fx = clamp(c.x + rand(-0.035, 0.035), 0.06, 0.94);
+  const fy = clamp(c.y + rand(-0.025, 0.025), 0.08, 0.92);
+  const dirX = clamp(Math.cos(angleDeg * Math.PI / 180), -1, 1);
   const impact = () => {
     cheekImpulse(cheek, strength, dirX);
-    body1.vs += 1.1 * strength;
-    playSmack(strength * 0.85, 1, 0.22); // noticeably quieter than your own hand
+    body1.vs += 1.05 * strength;
+    if (soundVol > 0) playSmack(strength * 0.9, 1, soundVol);
+    if (tier) pulseArmyUnit(tier.id);
     if (!reducedMotion) {
-      spawnFX(fx, fy, strength * 0.7, dirX, false);
-      if (strength > 0.35 && Math.random() < 0.3) spawnHandprint(fx, fy, strength * 0.8, rand(-25, 25));
+      spawnFX(fx, fy, strength * 0.75, dirX, false);
+      if (word) spawnPop(fx, fy - 0.05, 1.05, batch >= 12, word);
+      if (strength > 0.3 && Math.random() < 0.28) {
+        spawnHandprint(fx, fy, strength * 0.85, angleDeg + 90 + rand(-12, 12));
+      }
     }
   };
-  if (reducedMotion || !autoHandEl) { impact(); return; }
+  if (reducedMotion || !autoLayerEl) { impact(); return; }
+
+  const el = getAutoStriker();
+  if (!el) { impact(); return; }
   const r = stageRectCache || refreshStageRect();
-  const dx = (dirX >= 0 ? -1 : 1) * rand(0.14, 0.24) * r.width;
-  const dy = rand(0.2, 0.3) * r.height;
-  autoHandEl.style.left = fx * 100 + "%";
-  autoHandEl.style.top = fy * 100 + "%";
-  autoHandEl.style.width = 21 + strength * 11 + "%";
-  for (const a of autoHandEl.getAnimations()) a.cancel();
-  autoHandEl.animate([
-    { transform: `translate(calc(-50% + ${dx}px), calc(-52% - ${dy}px)) rotate(-26deg) scale(1.07)`, opacity: 0 },
-    { opacity: 1, offset: 0.18 },
-    { transform: "translate(-50%,-52%) rotate(6deg) scale(0.92)", opacity: 1, offset: 0.42 },
-    { transform: "translate(-50%,-55%) rotate(0deg) scale(1)", opacity: 1, offset: 0.62 },
-    { transform: `translate(calc(-50% + ${dx * 0.85}px), calc(-52% - ${dy}px)) rotate(-20deg) scale(1.04)`, opacity: 0 },
-  ], { duration: 430, easing: "ease-in-out" });
-  setTimeout(impact, 175);
+  const rad = angleDeg * Math.PI / 180;
+  const dist = rand(0.27, 0.36);
+  const dx = Math.cos(rad) * dist * r.width;
+  const dy = Math.sin(rad) * dist * r.height;
+  // The source hand's fingers point up; rotate them toward the target.
+  const impactRot = Math.atan2(-Math.sin(rad), -Math.cos(rad)) * 180 / Math.PI + 90;
+  const startRot = impactRot - 24;
+  el.dataset.busyUntil = String(performance.now() + duration + 40);
+  el.style.left = fx * 100 + "%";
+  el.style.top = fy * 100 + "%";
+  el.style.width = 20 + strength * 13 + "%";
+  const img = el.querySelector("img");
+  if (img && handSkinSrc && img.getAttribute("src") !== handSkinSrc) img.src = handSkinSrc;
+  for (const a of el.getAnimations()) a.cancel();
+  el.animate([
+    { transform: `translate(calc(-50% + ${dx}px), calc(-52% + ${dy}px)) rotate(${startRot}deg) scale(1.08)`, opacity: 0 },
+    { opacity: 1, offset: 0.16 },
+    { transform: `translate(-50%,-52%) rotate(${impactRot + 7}deg) scale(0.9)`, opacity: 1, offset: 0.42 },
+    { transform: `translate(-50%,-54%) rotate(${impactRot}deg) scale(1)`, opacity: 1, offset: 0.62 },
+    { transform: `translate(calc(-50% + ${dx * 0.82}px), calc(-52% + ${dy * 0.82}px)) rotate(${startRot + 8}deg) scale(1.04)`, opacity: 0 },
+  ], { duration, easing: "cubic-bezier(.2,.75,.3,1)" });
+  setTimeout(impact, Math.round(duration * 0.42));
+}
+
+function launchAutoVolley(rate) {
+  const profile = autoVisualProfile(rate);
+  if (!profile.hands) return profile;
+  const angles = [...AUTO_DIRECTIONS].sort(() => Math.random() - 0.5).slice(0, profile.hands);
+  const strength = clamp((0.24 + Math.sqrt(rate) * 0.055) / Math.sqrt(profile.hands), 0.18, 0.68);
+  angles.forEach((angle, i) => {
+    const fire = () => launchAutoStrike({
+      tier: pickAutoTier(),
+      angleDeg: angle + rand(-9, 9),
+      duration: profile.duration,
+      strength,
+      soundVol: i === 0 ? (profile.hands >= 3 ? 0.3 : 0.22) : 0,
+      word: i === 0 && profile.hands >= 3 ? (Math.random() < 0.5 ? "WHAM!" : "SMACK x" + profile.batch + "!") : null,
+      batch: profile.batch,
+    });
+    if (i === 0) fire();
+    else setTimeout(fire, i * 45);
+  });
+  return profile;
 }
 
 function applyOffline() {
@@ -777,8 +1056,7 @@ function applyOffline() {
   if (pts < 1) return;
   addPoints(pts);
   totalSmacks += smacks;
-  countEl.textContent = totalSmacks.toLocaleString();
-  localStorage.setItem("musey-smacks", String(totalSmacks));
+  renderTotalSmacks(true);
   showMilestone(`While you were gone, your auto-smackers delivered ${fmt(smacks)} smacks (+${fmt(pts)} pts)!`);
 }
 
@@ -890,8 +1168,7 @@ function showSharedScore() {
 $("reset-btn").addEventListener("click", () => {
   totalSmacks = 0;
   combo = 0;
-  countEl.textContent = "0";
-  localStorage.setItem("musey-smacks", "0");
+  renderTotalSmacks(true);
   updateCombo();
   showMilestone("Forgiven. For now.");
 });
@@ -947,7 +1224,7 @@ function paintHand(now) {
 
 /* ================= main loop ================= */
 let lastT = performance.now();
-let autoSmackAcc = 0, autoJiggleT = 1, shopTickT = 0;
+let autoSmackAcc = 0, autoVolleyT = 0.8, shopTickT = 0;
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -989,16 +1266,15 @@ function frame(now) {
       autoSmackAcc -= whole;
       const prevTotal = totalSmacks;
       totalSmacks += whole;
-      countEl.textContent = totalSmacks.toLocaleString();
+      renderTotalSmacks();
       for (const k of Object.keys(MILESTONES)) {
         if (prevTotal < +k && totalSmacks >= +k) showMilestone(MILESTONES[k]);
       }
-      localStorage.setItem("musey-smacks", String(totalSmacks));
     }
-    autoJiggleT -= dt;
-    if (autoJiggleT <= 0) {
-      autoJiggleT = clamp(1 / aRate, 0.55, 4);
-      showAutoSmack(clamp(0.22 + Math.sqrt(aRate) * 0.06, 0.22, 0.65));
+    autoVolleyT -= dt;
+    if (autoVolleyT <= 0) {
+      const profile = launchAutoVolley(aRate);
+      autoVolleyT = profile.interval;
     }
   }
   shopTickT -= dt;
@@ -1025,6 +1301,7 @@ function frame(now) {
 
 sizeCanvas();
 buildShop();
+buildAutoStrikers();
 updateShop();
 applyOffline();
 showSharedScore();

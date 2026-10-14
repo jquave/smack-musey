@@ -82,6 +82,11 @@ try:
 
     check("shop renders 17 upgrades", evl("document.querySelectorAll('.upgrade').length") == 17)
     check("balance starts at 0", evl("game.balance") == 0)
+    values = evl("Object.fromEntries(UPGRADES.map(u => [u.id, purchaseValue(u, planPurchase(u))]))")
+    check("every upgrade shows a value estimate", evl("[...document.querySelectorAll('.up-value')].filter(e => e.textContent.includes('pays back')).length") == 17)
+    check("opening click vs auto EV within 8x", values["windup-hand"]["payback"] / values["padded-palm"]["payback"] < 8,
+          f"(padded {values['padded-palm']['payback']:.1f}s, windup {values['windup-hand']['payback']:.1f}s)")
+    check("all opening value estimates finite/positive", all(v["delta"] > 0 and v["payback"] > 0 for v in values.values()))
 
     # 1. real smacks earn points (Space on the focused stage)
     first_delta = evl("""(async () => {
@@ -94,19 +99,21 @@ try:
 
     evl("""(async () => {
       const st = document.getElementById('stage'); st.focus();
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 40 && game.balance < 30; i++) {
         st.dispatchEvent(new KeyboardEvent('keydown', {code:'Space', bubbles:true}));
         await new Promise(r => setTimeout(r, 110));
       }
-      return true;
+      return game.balance;
     })()""")
     bal = evl("game.balance")
-    check("16 more smacks bank enough for Padded Palm (15)", bal >= 15, f"(balance {bal:.1f})")
+    check("real smacks bank enough for Padded Palm (30)", bal >= 30, f"(balance {bal:.1f})")
+    check("exactly one affordable Best value badge", evl("document.querySelectorAll('.upgrade.best-value').length") == 1)
 
     # 2. buy Padded Palm through the real shop button
     evl("document.querySelector('[data-upgrade=padded-palm]').click()")
     time.sleep(0.3)
     check("padded palm owned", evl("game.owned['padded-palm'] || 0") == 1)
+    check("manual hand uses Padded Palm art", "padded-palm.webp" in evl("document.querySelector('#hand img').getAttribute('src')"))
     time.sleep(1.2)  # let combo expire so deltas compare cleanly
     second_delta = evl("""(() => {
       const st = document.getElementById('stage'); st.focus();
@@ -129,6 +136,7 @@ try:
     evl("document.querySelector('[data-upgrade=windup-hand]').click()")
     time.sleep(0.3)
     check("wind-up hand owned", evl("game.owned['windup-hand'] || 0") == 1)
+    check("wind-up hand rendered in stage army", evl("!!document.querySelector('.army-unit[data-upgrade=windup-hand]')") is True)
     check("rates line shows auto income", "auto" in evl("document.getElementById('rates').textContent"),
           evl("document.getElementById('rates').textContent"))
     b_idle0 = evl("game.balance")
@@ -148,7 +156,7 @@ try:
     evl("document.getElementById('buy-1').click()")
 
     # 5. prestige: fund a star, confirm twice, verify reset + star kept
-    evl("addPoints(30000); updateShop();")
+    evl("addPoints(120000); updateShop();")
     check("a star is pending", evl("pendingStars()") >= 1, f"(pending {evl('pendingStars()')})")
     evl("document.getElementById('prestige-btn').click()")   # arm
     evl("document.getElementById('prestige-btn').click()")   # confirm
@@ -156,6 +164,8 @@ try:
     check("star banked", evl("game.stars") >= 1)
     check("balance reset by prestige", evl("game.balance") < 5, f"({evl('game.balance'):.1f})")
     check("upgrades reset by prestige", evl("Object.keys(game.owned).length") == 0)
+    check("stage army cleared by prestige", evl("document.querySelectorAll('.army-unit').length") == 0)
+    check("hand skin reset by prestige", "assets/hand.png" in evl("document.querySelector('#hand img').getAttribute('src')"))
 
     # 6. offline earnings: own an auto-hand again, jump lastSeen back an hour, reload
     evl("addPoints(100); updateShop(); document.querySelector('[data-upgrade=windup-hand]').click(); saveGame();")

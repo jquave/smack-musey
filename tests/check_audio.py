@@ -32,6 +32,8 @@ def check(name, cond, extra=""):
 INSTRUMENT = r"""
 window.__audioStarts = [];
 window.__gains = [];
+window.__gainPeaks = [];
+window.__sources = [];
 (() => {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
@@ -39,12 +41,33 @@ window.__gains = [];
   AC.prototype.createGain = function () {
     const g = origCreateGain.call(this);
     window.__gains.push(g);
+    const origSet = g.gain.setValueAtTime.bind(g.gain);
+    let recorded = false;
+    g.gain.setValueAtTime = function (v, t) {
+      if (!recorded) { recorded = true; window.__gainPeaks.push(v); }
+      return origSet(v, t);
+    };
     return g;
   };
-  const origStart = AudioBufferSourceNode.prototype.start;
-  AudioBufferSourceNode.prototype.start = function (...args) {
-    window.__audioStarts.push(performance.now());
-    return origStart.apply(this, args);
+  const origCreateSource = AC.prototype.createBufferSource;
+  AC.prototype.createBufferSource = function () {
+    const node = origCreateSource.call(this);
+    const rec = { rate: 0, detune: 0, startCtx: 0, stopCtx: 0 };
+    window.__sources.push(rec);
+    const origStart = node.start.bind(node);
+    const origStop = node.stop.bind(node);
+    node.start = function (...args) {
+      rec.rate = node.playbackRate.value;
+      rec.detune = node.detune ? node.detune.value : 0;
+      rec.startCtx = args[0] || node.context.currentTime;
+      window.__audioStarts.push(performance.now());
+      return origStart(...args);
+    };
+    node.stop = function (when = 0) {
+      rec.stopCtx = when;
+      return origStop(when);
+    };
+    return node;
   };
 })();
 """
@@ -120,7 +143,28 @@ try:
     check("first smack starts audio", starts > 0, f"(starts={starts})")
     check("first audio starts < 400ms after approach+click", starts > 0 and elapsed_ms < 400, f"({elapsed_ms:.0f}ms incl approach)")
     check("audio context running", evl("audioCtx.state") == "running", f"({evl('audioCtx.state')})")
-    manual_gain = evl("window.__gains.length ? window.__gains[window.__gains.length-1].gain.value : null")
+
+    # several fixed-strength keyboard smacks: pitch (rate+detune) and audible
+    # duration (scheduled stop-start) should vary from smack to smack.
+    evl("""(async () => {
+      const st = document.getElementById('stage'); st.focus();
+      for (let i = 0; i < 9; i++) {
+        st.dispatchEvent(new KeyboardEvent('keydown', {code:'Space', bubbles:true}));
+        await new Promise(r => setTimeout(r, 120));
+      }
+      return true;
+    })()""")
+    time.sleep(0.3)
+    sources = [s for s in evl("window.__sources.filter(s => s.stopCtx > s.startCtx).map(s => ({rate:s.rate, detune:s.detune, dur:s.stopCtx-s.startCtx}))") if s["rate"] > 0]
+    rates = [round(s["rate"], 3) for s in sources]
+    detunes = [s["detune"] for s in sources]
+    durs = [s["dur"] for s in sources]
+    check("pitch rate varies between smacks", len(set(rates)) >= 5, f"({rates})")
+    check("pitch detune varies between smacks", detunes and max(detunes) - min(detunes) > 20,
+          f"({min(detunes):.0f}..{max(detunes):.0f} cents)" if detunes else "(none)")
+    check("audible duration varies between smacks", durs and max(durs) - min(durs) > 0.006,
+          f"({min(durs)*1000:.0f}..{max(durs)*1000:.0f}ms)" if durs else "(none)")
+    manual_gain = evl("window.__gainPeaks.length ? Math.max(...window.__gainPeaks) : null")
 
     # 3. auto-smack visuals + quieter sound (balance topped up via app's own addPoints)
     evl("addPoints(200); updateShop(); document.querySelector('[data-upgrade=windup-hand]').click();")
@@ -128,17 +172,13 @@ try:
     check("wind-up hand owned for auto test", evl("(game.owned['windup-hand']||0)") >= 1)
     # baselines AFTER the purchase click's own boop sound, so only auto audio counts
     starts_after_manual = evl("window.__audioStarts.length")
-    gains_after_manual = evl("window.__gains.length")
+    gains_after_manual = evl("window.__gainPeaks.length")
     result = evl("""(async () => {
-      const ah = document.getElementById('auto-hand');
       const cheek = document.getElementById('cheek-r');
       let sawHand = false, maxDeform = 0;
       const t0 = performance.now();
       await new Promise(res => (function tick(){
-        if (ah) {
-          const cs = getComputedStyle(ah);
-          if (parseFloat(cs.opacity) > 0.15) sawHand = true;
-        }
+        if ([...document.querySelectorAll('.auto-striker')].some(el => parseFloat(getComputedStyle(el).opacity) > 0.15)) sawHand = true;
         const m = cheek.style.transform.match(/scale\\(([\\d.]+), ([\\d.]+)\\)/);
         if (m) maxDeform = Math.max(maxDeform, Math.abs(+m[2]-1));
         performance.now()-t0 < 6500 ? requestAnimationFrame(tick) : res();
@@ -150,10 +190,41 @@ try:
           f"(max deform {result['maxDeform']:.3f})" if result else "")
     auto_starts = evl("window.__audioStarts.length") - starts_after_manual
     check("auto-smack plays sound", auto_starts > 0, f"(+{auto_starts} starts)")
-    auto_gains = evl(f"window.__gains.slice({gains_after_manual}).map(g => g.gain.value)")
+    auto_gains = evl(f"window.__gainPeaks.slice({gains_after_manual})")
     auto_max_gain = max(auto_gains) if auto_gains else None
     check("auto-smack quieter than manual", auto_max_gain is not None and manual_gain is not None and auto_max_gain < manual_gain * 0.6,
           f"(manual {manual_gain}, auto max {auto_max_gain})")
+
+    # a late-game auto army: all tiers represented on stage, volleys use
+    # several hands at once and animate faster than the first Wind-Up Hand.
+    evl("""(() => {
+      game.owned = {...game.owned, 'windup-hand': 10, 'autohand': 10,
+        'smack-drone': 5, 'butler-bot': 2, 'orbital-cannon': 1,
+        'golden-glove': 1, 'orbital-cannon': 1};
+      updateShop();
+      return autoRate();
+    })()""")
+    time.sleep(0.3)
+    check("all five auto tiers rendered in stage army",
+          evl("document.querySelectorAll('.army-unit').length") == 5)
+    check("owned special rendered as stage charm",
+          evl("!!document.querySelector('.special-charm[data-upgrade=golden-glove]')") is True)
+    profiles = evl("({low: autoVisualProfile(0.5), high: autoVisualProfile(475)})")
+    check("high-rate volley uses multiple hands", profiles["high"]["hands"] >= 4, f"({profiles})")
+    check("high-rate strikes animate faster", profiles["high"]["duration"] < profiles["low"]["duration"],
+          f"({profiles['low']['duration']}ms -> {profiles['high']['duration']}ms)")
+    concurrent = evl("""(async () => {
+      let maxVisible = 0;
+      const t0 = performance.now();
+      await new Promise(res => (function tick(){
+        const vis = [...document.querySelectorAll('.auto-striker')]
+          .filter(el => parseFloat(getComputedStyle(el).opacity) > 0.15).length;
+        maxVisible = Math.max(maxVisible, vis);
+        performance.now()-t0 < 3000 ? requestAnimationFrame(tick) : res();
+      })());
+      return maxVisible;
+    })()""")
+    check("multiple auto hands visible simultaneously", concurrent >= 3, f"(max {concurrent})")
 
     print("JS errors:", errors if errors else "none")
     if errors:
