@@ -2,7 +2,7 @@
 
 The Meta Muse mascot has a very smackable butt. You have a plush hand. You know what to do.
 
-**[▶ Play it live](https://YOUR-USERNAME.github.io/YOUR-REPO/)** ← replace with your GitHub Pages URL after deploying.
+**[▶ Play it live](https://jquave.github.io/smack-musey/)**
 
 ## How to play
 
@@ -31,11 +31,11 @@ git init
 git add .
 git commit -m "Smack Musey"
 git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
+git remote add origin git@github.com:jquave/smack-musey.git
 git push -u origin main
 ```
 
-Then in the repo: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `/ (root)` → Save.** Your site appears at `https://YOUR-USERNAME.github.io/YOUR-REPO/` within a minute or two. After that, update the play link at the top of this README and the `og:image` path in `index.html` to the full URL (e.g. `https://YOUR-USERNAME.github.io/YOUR-REPO/assets/musey.jpg`) so link previews show Musey.
+Then in the repo: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `/ (root)` → Save.** The site is live at https://jquave.github.io/smack-musey/ (already deployed; these steps are for redeploying from scratch).
 
 ## Run locally
 
