@@ -796,7 +796,44 @@ muteBtn.addEventListener("click", () => {
 });
 syncMute();
 
+/* Score permalinks: stats packed as base64url JSON in ?s=... */
+function encodeShare() {
+  const payload = {
+    v: 1,
+    sm: totalSmacks,
+    pts: Math.floor(game.lifetimeEarned),
+    hard: +hardest.toFixed(2),
+    stars: game.stars,
+    up: Object.values(game.owned).reduce((a, b) => a + b, 0),
+    ts: Math.floor(Date.now() / 1000),
+  };
+  const json = JSON.stringify(payload);
+  return btoa(unescape(encodeURIComponent(json)))
+    .replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function decodeShare(str) {
+  try {
+    let b64 = String(str).replaceAll("-", "+").replaceAll("_", "/");
+    while (b64.length % 4) b64 += "=";
+    const payload = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    if (!payload || payload.v !== 1) return null;
+    for (const k of ["sm", "pts", "hard", "stars", "up"]) {
+      if (!Number.isFinite(payload[k]) || payload[k] < 0) return null;
+    }
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
+function shareURL() {
+  const base = location.href.split(/[?#]/)[0];
+  return `${base}?s=${encodeShare()}`;
+}
+
 $("share-btn").addEventListener("click", async () => {
+  const url = shareURL();
   const text = totalSmacks === 0
     ? "I have smacked Musey's butt 0 times. I am about to fix that."
     : `I have smacked Musey's butt ${totalSmacks.toLocaleString()} time${totalSmacks === 1 ? "" : "s"} (hardest: ${tierName(hardest)}). He knows what he did.`;
@@ -804,7 +841,7 @@ $("share-btn").addEventListener("click", async () => {
     if (navigator.share) {
       // give the share sheet a moment; if it never settles (some desktops/headless), fall back
       const settled = await Promise.race([
-        navigator.share({ text }).then(() => true).catch(() => false),
+        navigator.share({ title: "Smack Musey!", text, url }).then(() => true).catch(() => false),
         new Promise((res) => setTimeout(() => res(false), 1200)),
       ]);
       if (settled) return;
@@ -812,13 +849,43 @@ $("share-btn").addEventListener("click", async () => {
     throw new Error("no native share");
   } catch (e) {
     try {
-      await navigator.clipboard.writeText(text);
-      showMilestone("Copied. Go brag about it.");
+      await navigator.clipboard.writeText(url);
+      showMilestone("Score link copied. Go brag about it.");
     } catch (e2) {
-      showMilestone(text);
+      showMilestone("Copy this score link: " + url);
     }
   }
 });
+
+/* Landing on someone's ?s= link: show their score + how you stack up */
+function showSharedScore() {
+  const raw = new URLSearchParams(location.search).get("s");
+  if (!raw) return;
+  const p = decodeShare(raw);
+  if (!p) return;
+  const theirs = p.sm;
+  const mine = totalSmacks;
+  const verdict = mine === 0 && theirs === 0
+    ? "Nobody has smacked yet. Be the first."
+    : mine >= theirs
+      ? `You're at ${fmt(mine)} — you're winning. Musey fears you most.`
+      : `You're at ${fmt(mine)} — only ${fmt(theirs - mine)} behind. Get smacking.`;
+  const banner = document.createElement("div");
+  banner.className = "shared-banner";
+  banner.setAttribute("role", "status");
+  banner.innerHTML =
+    `<span class="shared-text">★ Shared score: <b>${fmt(theirs)} smacks</b> • ${fmt(p.pts)} lifetime pts • ` +
+    `hardest: <b>${tierName(p.hard)}</b> • ★${p.stars} • ${fmt(p.up)} upgrades<br><span class="shared-verdict">${verdict}</span></span>` +
+    `<button type="button" class="shared-x" aria-label="Dismiss shared score">×</button>`;
+  banner.querySelector(".shared-x").addEventListener("click", () => {
+    banner.remove();
+    history.replaceState({}, "", location.pathname);
+    document.title = "Smack Musey!";
+  });
+  const layout = document.querySelector("main > .layout");
+  layout.parentNode.insertBefore(banner, layout);
+  document.title = `${fmt(theirs)} smacks! Can you beat it? | Smack Musey!`;
+}
 
 $("reset-btn").addEventListener("click", () => {
   totalSmacks = 0;
@@ -960,5 +1027,6 @@ sizeCanvas();
 buildShop();
 updateShop();
 applyOffline();
+showSharedScore();
 setInterval(saveGame, 5000);
 requestAnimationFrame(frame);

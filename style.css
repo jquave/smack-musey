@@ -590,6 +590,42 @@ main > .layout {
 #prestige-btn:disabled { background: #d8b7b1; cursor: default; box-shadow: 0 4px 0 var(--ink); }
 #prestige-btn.confirm { background: #c22544; }
 
+.shared-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(94vw, 780px);
+  margin: 12px auto 2px;
+  padding: 11px 14px;
+  border: 3px solid var(--accent-deep);
+  border-radius: 18px;
+  box-shadow: 0 4px 0 var(--accent-deep);
+  background-color: var(--card);
+  background-image: url("assets/gen/tex-cream-dots.webp");
+  background-size: 230px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.shared-banner .shared-text { flex: 1; }
+.shared-banner .shared-verdict { color: var(--accent-deep); font-weight: 900; }
+
+.shared-x {
+  flex: 0 0 auto;
+  font: inherit;
+  font-weight: 900;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--ink);
+  background: #f0cfc8;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+
 #auto-hand {
   position: absolute;
   width: 26%;
